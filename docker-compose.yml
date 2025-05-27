@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  postgresql:
+    image: postgres:14
+    container_name: medical-postgres
+    environment:
+      POSTGRES_DB: medical_cdss
+      POSTGRES_USER: medical_user
+      POSTGRES_PASSWORD: medical_pass123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: medical-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # OpenMRS는 별도로 MySQL과 함께 실행
+  mysql:
+    image: mysql:5.7
+    container_name: openmrs-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: Admin123
+      MYSQL_DATABASE: openmrs
+      MYSQL_USER: openmrs
+      MYSQL_PASSWORD: Admin123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: --character-set-server=utf8 --collation-server=utf8_general_ci
+    restart: unless-stopped
+
+  openmrs:
+    image: openmrs/openmrs-reference-application-distro:latest
+    container_name: openmrs-app
+    environment:
+      DB_HOST: mysql
+      DB_DATABASE: openmrs
+      DB_USERNAME: openmrs
+      DB_PASSWORD: Admin123
+      DB_CREATE_TABLES: "true"
+      DB_AUTO_UPDATE: "true"
+      MODULE_WEB_ADMIN: "true"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+    volumes:
+      - openmrs_data:/usr/local/tomcat/.OpenMRS
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  mysql_data:
+  openmrs_data:
