@@ -56,7 +56,6 @@ services:
       - mysql
     volumes:
       - openmrs_data:/usr/local/tomcat/.OpenMRS
-      - ./openmrs-runtime.properties:/usr/local/tomcat/.OpenMRS/openmrs-runtime.properties
     restart: unless-stopped
 
 volumes:

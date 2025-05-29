@@ -15,9 +15,13 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
+# medical_cdss/urls.py
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include # include를 import 했는지 확인
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    path('admin/', admin.site.urls),
+    path('api/omrs/', include('openmrs_integration.urls')), # 새로 추가한 줄
+    # 여기에 다른 앱들의 URL 설정이 있을 수 있습니다.
+    # 예: path('api/patients/', include('patients.urls')),
 ]

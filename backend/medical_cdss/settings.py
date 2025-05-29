@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'openmrs_integration',
     
     # Third party apps
     'rest_framework',
@@ -35,6 +36,7 @@ INSTALLED_APPS = [
     'visits',
     'diagnoses',
     'cdss',
+    'ml_models',
 ]
 
 MIDDLEWARE = [
@@ -139,6 +141,9 @@ CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 
 # OpenMRS Configuration
-OPENMRS_BASE_URL = os.getenv('OPENMRS_URL', 'http://localhost:8080/openmrs')
+_OPENMRS_WEB_URL = os.getenv('OPENMRS_BASE_URL', 'http://localhost:8080/openmrs')
+_OPENMRS_API_PATH_SEGMENT = os.getenv('OPENMRS_API_PATH', '/ws/rest/v1') # .env의 변수명이 OPENMRS_API_PATH라고 가정
 OPENMRS_USERNAME = os.getenv('OPENMRS_USERNAME', 'admin')
 OPENMRS_PASSWORD = os.getenv('OPENMRS_PASSWORD', 'Admin123')
+
+OPENMRS_API_BASE_URL = f"{_OPENMRS_WEB_URL.rstrip('/')}{_OPENMRS_API_PATH_SEGMENT.rstrip('/')}"
