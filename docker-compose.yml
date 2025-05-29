@@ -58,6 +58,51 @@ services:
       - openmrs_data:/usr/local/tomcat/.OpenMRS
     restart: unless-stopped
 
+  # Celery Worker
+  celery_worker:
+    build: ./backend
+    container_name: medical-celery-worker
+    command: celery -A medical_cdss worker -l info -Q ml_predictions
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - redis
+      - postgresql
+    environment:
+      - DATABASE_URL=postgresql://medical_user:medical_pass123@postgresql:5432/medical_cdss
+      - REDIS_URL=redis://redis:6379/0
+    restart: unless-stopped
+
+  # Celery Beat
+  celery_beat:
+    build: ./backend
+    container_name: medical-celery-beat
+    command: celery -A medical_cdss beat -l info
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - redis
+      - postgresql
+    environment:
+      - DATABASE_URL=postgresql://medical_user:medical_pass123@postgresql:5432/medical_cdss
+      - REDIS_URL=redis://redis:6379/0
+    restart: unless-stopped
+
+  # Flower 모니터링
+  flower:
+    build: ./backend
+    container_name: medical-flower
+    command: celery -A medical_cdss flower --port=5555
+    ports:
+      - "5555:5555"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:

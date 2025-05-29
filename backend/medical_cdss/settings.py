@@ -135,11 +135,32 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
-# Celery Configuration
-CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
-
 # OpenMRS Configuration
 OPENMRS_BASE_URL = os.getenv('OPENMRS_URL', 'http://localhost:8080/openmrs')
 OPENMRS_USERNAME = os.getenv('OPENMRS_USERNAME', 'admin')
 OPENMRS_PASSWORD = os.getenv('OPENMRS_PASSWORD', 'Admin123')
+
+# Celery 설정
+CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
+CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/0'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Seoul'
+CELERY_ENABLE_UTC = True
+
+# Celery 태스크 라우팅
+CELERY_TASK_ROUTES = {
+    'ml_models.tasks.predict_complications_task': {'queue': 'ml_predictions'},
+    'ml_models.tasks.predict_stroke_mortality_task': {'queue': 'ml_predictions'},
+    'ml_models.tasks.assess_sod2_status_task': {'queue': 'ml_predictions'},
+    'ml_models.tasks.cleanup_old_tasks': {'queue': 'maintenance'},
+}
+
+# Celery Beat 스케줄 (정기 작업)
+CELERY_BEAT_SCHEDULE = {
+    'cleanup-old-tasks': {
+        'task': 'ml_models.tasks.cleanup_old_tasks',
+        'schedule': 86400.0,  # 24시간마다 실행
+    },
+}

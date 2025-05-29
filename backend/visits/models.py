@@ -106,7 +106,8 @@ class VitalSigns(models.Model):
     weight = models.DecimalField("체중", max_digits=5, decimal_places=2, null=True, blank=True)  # kg
     
     # 측정 정보
-    measured_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    measured_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True,
+                                    related_name="visit_vitalsigns")
     measured_at = models.DateTimeField(auto_now_add=True)
     notes = models.TextField("측정 메모", blank=True)
     

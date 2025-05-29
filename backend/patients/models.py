@@ -114,7 +114,8 @@ class VitalSigns(models.Model):
     
     # 측정 정보
     measured_at = models.DateTimeField(auto_now_add=True, verbose_name="측정시간")
-    measured_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name="측정자")
+    measured_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, verbose_name="측정자",related_name="patient_vitalsigns")
     
     class Meta:
         verbose_name = "활력징후"
