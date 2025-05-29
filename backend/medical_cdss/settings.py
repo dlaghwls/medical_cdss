@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'visits',
     'diagnoses',
     'cdss',
+    'ml_models',
 ]
 
 MIDDLEWARE = [
