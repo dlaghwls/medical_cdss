@@ -1,322 +1,313 @@
-# # openmrs_integration/views.py
-# import requests
-# from requests.auth import HTTPBasicAuth
-# from django.conf import settings
-# from django.http import JsonResponse, Http404
-# from .models import OpenMRSPatient # Django 모델 임포트
-# from django.db.models import Q
-# import uuid
-# import json # JSON 파싱 및 저장을 위해 (raw_openmrs_data가 JSONField가 아니라면 필요)
-
-# # settings.py에서 OpenMRS 접속 정보 가져오기
-# OPENMRS_API_BASE_URL = getattr(settings, 'OPENMRS_API_BASE_URL', 'http://localhost:8080/openmrs/ws/rest/v1')
-# OPENMRS_USERNAME = getattr(settings, 'OPENMRS_USERNAME', 'admin')
-# OPENMRS_PASSWORD = getattr(settings, 'OPENMRS_PASSWORD', 'Admin123')
-
-# def get_openmrs_patients_list(request):
-#     query = request.GET.get('q', '')
-#     # OpenMRS API가 지원하는 페이징 파라미터 (예: limit, startIndex)를 사용해야 합니다.
-#     # Django ORM 페이징은 OpenMRS에서 모든 데이터를 가져온 후에만 의미가 있습니다.
-#     # 여기서는 React에서 limit, startIndex를 보내고 이를 OpenMRS API 호출에 그대로 사용한다고 가정합니다.
-#     limit = request.GET.get('limit', settings.OPENMRS_PATIENT_LIST_DEFAULT_LIMIT if hasattr(settings, 'OPENMRS_PATIENT_LIST_DEFAULT_LIMIT') else 50)
-#     start_index = request.GET.get('startIndex', '0')
-
-#     try:
-#         # OpenMRS API에서 환자 목록 가져오기
-#         # ★★★ OpenMRS API 문서에서 '모든 환자' 또는 '검색된 환자' 목록을 가져오는
-#         # 정확한 URL과 파라미터를 확인하고 이 부분을 수정해야 합니다. ★★★
-#         api_url = f"{OPENMRS_API_BASE_URL}/patient?v=full" # 기본적으로 full representation 요청
-        
-#         params = {
-#             'v': 'full', # 상세 정보를 위해 full view 요청
-#             'limit': limit,
-#             'startIndex': start_index
-#         }
-#         if query:
-#             params['q'] = query
-        
-#         print(f"Requesting OpenMRS API for patient list: {api_url} with params: {params}")
-#         response = requests.get(
-#             api_url,
-#             params=params, # GET 파라미터는 params 인자로 전달
-#             auth=HTTPBasicAuth(OPENMRS_USERNAME, OPENMRS_PASSWORD),
-#             headers={'Content-Type': 'application/json'}
-#         )
-#         response.raise_for_status() # 4xx 또는 5xx 오류 발생 시 예외 발생
-#         openmrs_patients_response = response.json()
-#         openmrs_patients_list = openmrs_patients_response.get('results', [])
-#         print(f"Successfully fetched {len(openmrs_patients_list)} patients from OpenMRS.")
-
-#         # (선택사항) 가져온 환자들을 Django DB에 저장/업데이트
-#         # 실제 운영 환경에서는 이 부분을 비동기 작업으로 처리하거나,
-#         # 필요한 경우에만 동기화하는 전략을 고려해야 합니다.
-#         for patient_data in openmrs_patients_list:
-#             try:
-#                 patient_uuid_str = patient_data.get('uuid')
-#                 if not patient_uuid_str:
-#                     continue # uuid가 없는 데이터는 건너뛰기
-
-#                 valid_uuid = uuid.UUID(patient_uuid_str)
-                
-#                 # identifier는 리스트일 수 있으므로 첫 번째 것을 사용하거나 다른 로직 필요
-#                 identifiers = patient_data.get('identifiers', [])
-#                 main_identifier = identifiers[0].get('identifier') if identifiers else None
-
-#                 person_data = patient_data.get('person', {})
-#                 preferred_name = person_data.get('preferredName', {})
-
-#                 OpenMRSPatient.objects.update_or_create(
-#                     uuid=valid_uuid,
-#                     defaults={
-#                         'display_name': patient_data.get('display'),
-#                         'identifier': main_identifier,
-#                         'given_name': preferred_name.get('givenName'),
-#                         'family_name': preferred_name.get('familyName'),
-#                         'gender': person_data.get('gender'),
-#                         'birthdate': person_data.get('birthdate', None), # 날짜 형식 변환 필요시 처리
-#                         'raw_openmrs_data': patient_data # 원본 JSON 저장
-#                     }
-#                 )
-#             except Exception as db_error:
-#                 print(f"Error saving/updating patient {patient_data.get('uuid')} to Django DB: {db_error}")
-#                 # 개별 환자 저장 오류는 전체 요청을 실패시키지 않도록 처리 (선택적)
-
-#         # React에서 사용할 수 있도록 OpenMRS API 응답과 유사한 형태로 반환
-#         # totalCount는 OpenMRS API가 페이징 정보를 제공한다면 그 값을 사용해야 합니다.
-#         # 여기서는 가져온 목록의 길이로 단순화하거나, 응답에 total이 있다면 그 값을 사용합니다.
-#         # 실제 totalCount는 OpenMRS API 응답 헤더나 다른 필드에 있을 수 있습니다.
-#         api_total_count = openmrs_patients_response.get('total', len(openmrs_patients_list)) # 예시, 실제 필드명 확인 필요
-
-#         return JsonResponse({'results': openmrs_patients_list, 'totalCount': api_total_count })
-
-#     except requests.exceptions.HTTPError as err:
-#         error_message = f'Error fetching patient list from OpenMRS: {err.response.status if err.response else ""} {err.response.reason if err.response else ""}'
-#         error_detail = err.response.text if err.response else 'No response text'
-#         print(f"HTTP error fetching patient list from OpenMRS: {err} - {error_detail}")
-#         return JsonResponse({'error': error_message, 'detail': error_detail}, status=err.response.status_code if err.response else 500)
-#     except requests.exceptions.RequestException as err:
-#         print(f"Network error connecting to OpenMRS for patient list: {err}")
-#         return JsonResponse({'error': f'Network error connecting to OpenMRS: {err}'}, status=503)
-#     except Exception as e:
-#         print(f"An unexpected error occurred in get_openmrs_patients_list: {e}")
-#         return JsonResponse({'error': f'An unexpected server error occurred: {str(e)}'}, status=500)
-
-
-# def get_openmrs_patient_detail(request, patient_uuid):
-#     try:
-#         valid_uuid = uuid.UUID(str(patient_uuid)) # UUID 형식 유효성 검사
-        
-#         # 전략 1: 항상 OpenMRS에서 최신 정보를 가져와서 Django DB에 업데이트 후 반환
-#         # 전략 2: Django DB에 있으면 바로 반환, 없으면 OpenMRS에서 가져와서 저장 후 반환 (캐싱)
-#         # 여기서는 전략 2와 유사하게, 하지만 OpenMRS 우선 조회를 시도합니다.
-
-#         print(f"Attempting to fetch patient {valid_uuid} detail from OpenMRS...")
-#         api_url = f"{OPENMRS_API_BASE_URL}/patient/{valid_uuid}?v=full"
-        
-#         response = requests.get(
-#             api_url,
-#             auth=HTTPBasicAuth(OPENMRS_USERNAME, OPENMRS_PASSWORD),
-#             headers={'Content-Type': 'application/json'}
-#         )
-#         response.raise_for_status() 
-#         openmrs_patient_data = response.json()
-#         print(f"Successfully fetched data from OpenMRS for patient {valid_uuid}")
-
-#         # 가져온 데이터를 Django DB에 저장 또는 업데이트
-#         try:
-#             identifiers = openmrs_patient_data.get('identifiers', [])
-#             main_identifier = identifiers[0].get('identifier') if identifiers else None
-#             person_data = openmrs_patient_data.get('person', {})
-#             preferred_name = person_data.get('preferredName', {})
-
-#             patient_obj, created = OpenMRSPatient.objects.update_or_create(
-#                 uuid=valid_uuid,
-#                 defaults={
-#                     'display_name': openmrs_patient_data.get('display'),
-#                     'identifier': main_identifier,
-#                     'given_name': preferred_name.get('givenName'),
-#                     'family_name': preferred_name.get('familyName'),
-#                     'gender': person_data.get('gender'),
-#                     'birthdate': person_data.get('birthdate', None),
-#                     'raw_openmrs_data': openmrs_patient_data
-#                 }
-#             )
-#             if created:
-#                 print(f"Patient {valid_uuid} created in Django DB from OpenMRS data.")
-#             else:
-#                 print(f"Patient {valid_uuid} updated in Django DB from OpenMRS data.")
-#         except Exception as db_error:
-#             print(f"Error saving/updating patient {valid_uuid} to Django DB after fetching from OpenMRS: {db_error}")
-#             # DB 저장 실패는 전체 요청을 실패시키지 않고 OpenMRS 데이터만 반환할 수 있음 (선택적)
-
-#         return JsonResponse(openmrs_patient_data) # OpenMRS에서 가져온 원본 데이터 반환
-
-#     except ValueError:
-#         return JsonResponse({'error': 'Invalid UUID format'}, status=400)
-#     except requests.exceptions.HTTPError as err:
-#         if err.response.status_code == 404:
-#             # OpenMRS에도 환자가 없는 경우
-#             # 이전에 로컬 DB에서 못 찾았다는 메시지를 React에 전달했으므로,
-#             # 여기서는 OpenMRS에도 없었다는 것을 명확히 하거나, 동일한 404를 유지
-#             return JsonResponse({'error': f'Patient not found in OpenMRS (UUID: {patient_uuid})'}, status=404)
-#         else:
-#             error_message = f'Error fetching detail from OpenMRS: {err.response.status} {err.response.reason}'
-#             error_detail = err.response.text if err.response else 'No response text'
-#             print(f"HTTP error fetching detail from OpenMRS: {err} - {error_detail}")
-#             return JsonResponse({'error': error_message, 'detail': error_detail}, status=err.response.status_code)
-#     except requests.exceptions.RequestException as err:
-#         print(f"Network error connecting to OpenMRS for patient detail: {err}")
-#         return JsonResponse({'error': f'Network error connecting to OpenMRS: {err}'}, status=503)
-#     except Exception as e:
-#         print(f"An unexpected error occurred in get_openmrs_patient_detail: {e}")
-#         return JsonResponse({'error': f'An unexpected server error occurred: {str(e)}'}, status=500)
-
 # openmrs_integration/views.py
 import requests
 from requests.auth import HTTPBasicAuth
 from django.conf import settings
-from django.http import JsonResponse, Http404
-from .models import OpenMRSPatient # Django 모델 임포트
+from django.http import JsonResponse 
+from .models import OpenMRSPatient 
 from django.db.models import Q
 import uuid
-import json
+from datetime import datetime, date 
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny 
+from rest_framework.response import Response
+from rest_framework import status
+from .utils import perform_openmrs_patient_sync 
+# from .serializers import OpenMRSPatientSerializer # Serializer를 사용한다면 주석 해제
 
-# settings.py에서 OpenMRS 접속 정보 가져오기 (get_openmrs_patient_detail 등에서 사용)
 OPENMRS_API_BASE_URL = getattr(settings, 'OPENMRS_API_BASE_URL', 'http://localhost:8080/openmrs/ws/rest/v1')
 OPENMRS_USERNAME = getattr(settings, 'OPENMRS_USERNAME', 'admin')
 OPENMRS_PASSWORD = getattr(settings, 'OPENMRS_PASSWORD', 'Admin123')
 
-# --- 환자 목록 조회: Django DB에서만 조회 ---
-def get_django_patients_list(request):
+# settings.py에서 환자 등록 시 사용할 기본 UUID들 가져오기
+DEFAULT_IDENTIFIER_TYPE_UUID = getattr(settings, 'DEFAULT_OPENMRS_IDENTIFIER_TYPE_UUID', None) 
+DEFAULT_LOCATION_UUID = getattr(settings, 'DEFAULT_OPENMRS_LOCATION_UUID', None)
+PHONE_NUMBER_ATTRIBUTE_TYPE_UUID = getattr(settings, 'OPENMRS_PHONE_ATTRIBUTE_TYPE_UUID', None)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny]) 
+def get_django_patient_list_only(request):
     query = request.GET.get('q', '')
-    limit = int(request.GET.get('limit', 50)) # 기본값을 50으로 설정하거나 settings에서 가져옴
-    start_index = int(request.GET.get('startIndex', '0'))
-    
-    print(f"Fetching patients from Django DB with query: '{query}', limit: {limit}, startIndex: {start_index}")
-
     try:
-        patients_qs = OpenMRSPatient.objects.all().order_by('display_name') # 기본 정렬 추가
-
+        limit = int(request.GET.get('limit', 50))
+        start_index = int(request.GET.get('startIndex', '0'))
+    except ValueError:
+        limit = 50
+        start_index = 0
+    
+    print(f"[Django View - get_django_patient_list_only] Received request. Query: '{query}', Limit: {limit}, StartIndex: {start_index}")
+    try:
+        base_qs = OpenMRSPatient.objects.all()
         if query:
-            patients_qs = patients_qs.filter(
-                Q(display_name__icontains=query) | 
-                Q(identifier__icontains=query) |
-                Q(given_name__icontains=query) |
-                Q(family_name__icontains=query) |
-                Q(uuid__icontains=query) # UUID로도 검색 가능하도록 추가 (선택적)
-            )
+            # UUID 검색은 정확히 일치하는 것으로 가정 (iexact 사용)
+            # 다른 필드는 부분 일치 (icontains)
+            try:
+                # query가 유효한 UUID 형식인지 먼저 확인 시도
+                uuid_query = uuid.UUID(query)
+                base_qs = base_qs.filter(uuid=uuid_query)
+            except ValueError:
+                # UUID 형식이 아니면 다른 필드에서 검색
+                base_qs = base_qs.filter(
+                    Q(display_name__icontains=query) | Q(identifier__icontains=query) |
+                    Q(given_name__icontains=query) | Q(family_name__icontains=query)
+                )
         
-        total_patients = patients_qs.count()
-        patients_page = patients_qs[start_index : start_index + limit]
+        patients_qs_ordered = base_qs.order_by('display_name')
+        total_patients_after_filter = patients_qs_ordered.count()
+        current_patients_to_display = patients_qs_ordered[start_index : start_index + limit]
+        
+        print(f"[Django View - get_django_patient_list_only] Patients to display after paging: {len(list(current_patients_to_display))}")
 
         patients_data = []
-        for patient in patients_page:
-            # OpenMRS API 응답과 유사한 구조로 만듭니다.
-            # display 필드는 OpenMRS 'display'와 동일하게 이름 + ID 형태일 수 있습니다.
-            # 여기서는 모델의 필드를 직접 사용합니다.
-            person_data_from_raw = patient.raw_openmrs_data.get('person', {}) if patient.raw_openmrs_data else {}
-            
-            patients_data.append({
-                'uuid': str(patient.uuid),
-                'display': patient.display_name or f"{patient.given_name or ''} {patient.family_name or ''} - {patient.identifier or str(patient.uuid)[:8]}".strip(),
-                'identifiers': [{'identifier': patient.identifier}] if patient.identifier else [], # OpenMRS 구조와 유사하게
-                'person': { # OpenMRS person 객체 구조와 유사하게 (필요한 정보만)
-                    'display': f"{patient.given_name or ''} {patient.family_name or ''}".strip(),
-                    'gender': patient.gender,
-                    'birthdate': patient.birthdate.isoformat() if patient.birthdate else None,
-                    'preferredName': {
-                        'givenName': patient.given_name,
-                        'familyName': patient.family_name,
-                    }
-                    # 필요시 person_data_from_raw 에서 다른 정보 추가
-                }
-                # 필요하다면 다른 OpenMRS 응답 필드와 유사하게 추가
-            })
-                
-        print(f"Returning {len(patients_data)} patients from Django DB. Total matching: {total_patients}")
-        return JsonResponse({'results': patients_data, 'totalCount': total_patients})
-
+        for p_model in current_patients_to_display:
+            display_name_final = "정보 없음"; person_data_final = {}; identifiers_final = []
+            if p_model.raw_openmrs_data and isinstance(p_model.raw_openmrs_data, dict):
+                raw = p_model.raw_openmrs_data; display_name_final = raw.get('display', display_name_final)
+                raw_ids = raw.get('identifiers', []);
+                if raw_ids and isinstance(raw_ids, list):
+                    for ident in raw_ids:
+                        if ident and ident.get('identifier'): identifiers_final.append({'identifier': ident.get('identifier')})
+                raw_person = raw.get('person', {});
+                if raw_person and isinstance(raw_person, dict):
+                    person_display_raw = raw_person.get('display', f"{raw_person.get('preferredName', {}).get('givenName', '')} {raw_person.get('preferredName', {}).get('familyName', '')}".strip())
+                    person_data_final = {'display': person_display_raw, 'gender': raw_person.get('gender'), 'birthdate': raw_person.get('birthdate'), 'preferredName': raw_person.get('preferredName', {})}
+            if display_name_final == "정보 없음": display_name_final = p_model.display_name or f"{p_model.given_name or ''} {p_model.family_name or ''}".strip() or (f"ID: {p_model.identifier}" if p_model.identifier else f"Patient (UUID: {str(p_model.uuid)[:8]})")
+            if not identifiers_final and p_model.identifier: identifiers_final.append({'identifier': p_model.identifier})
+            if not person_data_final or not person_data_final.get('display'): # person 정보가 raw에서 없거나 비어있으면 모델 필드 사용
+                person_display_model = f"{p_model.given_name or ''} {p_model.family_name or ''}".strip()
+                person_data_final = {'display': person_display_model, 'gender': p_model.gender or person_data_final.get('gender'), 'birthdate': (p_model.birthdate.isoformat() if isinstance(p_model.birthdate, date) else str(p_model.birthdate)) if p_model.birthdate else person_data_final.get('birthdate'), 'preferredName': {'givenName': p_model.given_name or person_data_final.get('preferredName', {}).get('givenName'), 'familyName': p_model.family_name or person_data_final.get('preferredName', {}).get('familyName')}}
+            patients_data.append({'uuid': str(p_model.uuid), 'display': display_name_final, 'identifiers': identifiers_final, 'person': person_data_final})
+        
+        print(f"Django View (get_django_patient_list_only): Returning {len(patients_data)} patients. Total: {total_patients_after_filter}")
+        return Response({'results': patients_data, 'totalCount': total_patients_after_filter})
     except Exception as e:
-        print(f"Error in get_django_patients_list: {e}")
-        return JsonResponse({'error': f'An unexpected error occurred while fetching from Django DB: {str(e)}'}, status=500)
+        print(f"Django View (get_django_patient_list_only): Error - {type(e).__name__}: {e}")
+        return Response({'error': f'Error fetching from Django DB: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_patients_and_sync_from_openmrs(request):
+    print("Django View (get_patients_and_sync_from_openmrs): Received request.")
+    default_sync_query = getattr(settings, 'DEFAULT_OPENMRS_SYNC_QUERY', "1000")
+    sync_query_from_request = request.GET.get('sync_q', default_sync_query) 
+    sync_limit = int(request.GET.get('sync_limit', 50))
+    sync_max = int(request.GET.get('sync_max', 200))
+    sync_error_detail = None
 
-# --- 단일 환자 상세 정보 조회: Django DB에 없으면 OpenMRS에서 가져와 저장 후 반환 ---
-def get_openmrs_patient_detail(request, patient_uuid):
     try:
-        valid_uuid = uuid.UUID(str(patient_uuid))
-        
-        # 1. Django 로컬 DB에서 먼저 찾아봅니다.
-        try:
-            patient_model_instance = OpenMRSPatient.objects.get(uuid=valid_uuid)
-            if patient_model_instance.raw_openmrs_data: # 저장된 원본 JSON 데이터가 있다면 그것을 반환
-                print(f"Fetching patient {valid_uuid} from Django DB (raw_openmrs_data)")
-                return JsonResponse(patient_model_instance.raw_openmrs_data)
-            else: # 원본 JSON은 없지만 모델 필드는 있을 경우, 구성해서 반환 (또는 OpenMRS에서 다시 가져오기)
-                print(f"Patient {valid_uuid} found in Django DB but no raw_openmrs_data, constructing from model or fetching from OpenMRS...")
-                # 여기서는 OpenMRS에서 다시 가져오도록 로직을 이어갑니다.
-                # 만약 모델 필드만으로 충분하다면 여기서 바로 JsonResponse를 구성해도 됩니다.
-                pass 
-        except OpenMRSPatient.DoesNotExist:
-            print(f"Patient {valid_uuid} not found in Django DB, will fetch from OpenMRS...")
-            pass # OpenMRS에서 가져오도록 아래 로직으로 넘어감
-
-        # 2. OpenMRS에서 환자 정보 가져오기 (Django DB에 없거나 raw_openmrs_data가 없는 경우)
-        api_url = f"{OPENMRS_API_BASE_URL}/patient/{valid_uuid}?v=full"
-        print(f"Requesting OpenMRS API for patient detail: {api_url}")
-        
-        response = requests.get(
-            api_url,
-            auth=HTTPBasicAuth(OPENMRS_USERNAME, OPENMRS_PASSWORD),
-            headers={'Content-Type': 'application/json'}
+        print(f"Django View (get_patients_and_sync_from_openmrs): Triggering OpenMRS sync with query='{sync_query_from_request}'")
+        def view_logger(message, style_func_name=None): print(f"[SYNC_UTIL_IN_VIEW] {message}")
+        perform_openmrs_patient_sync(
+            query_term=sync_query_from_request, limit_per_call=sync_limit, 
+            max_total_to_sync=sync_max, progress_logger=view_logger 
         )
-        response.raise_for_status() 
-        openmrs_patient_data = response.json()
-        print(f"Successfully fetched data from OpenMRS for patient {valid_uuid}")
+        print(f"Django View (get_patients_and_sync_from_openmrs): Sync utility finished.")
+    except Exception as e:
+        sync_error_message = f"Error during OpenMRS sync: {str(e)}"
+        print(f"Django View (get_patients_and_sync_from_openmrs): {sync_error_message}")
+        sync_error_detail = sync_error_message
+    
+    query_for_list = request.GET.get('q', '') 
+    limit_for_list = int(request.GET.get('limit', 50))
+    start_index_for_list = int(request.GET.get('startIndex', '0'))
+    print(f"Django View (get_patients_and_sync_from_openmrs): Fetching final list from LOCAL DJANGO DB. Query: '{query_for_list}'")
+    try:
+        base_qs = OpenMRSPatient.objects.all()
+        if query_for_list:
+            try: # UUID 검색 시도
+                uuid_query_list = uuid.UUID(query_for_list)
+                base_qs = base_qs.filter(uuid=uuid_query_list)
+            except ValueError: # UUID 아니면 다른 필드 검색
+                base_qs = base_qs.filter(
+                    Q(display_name__icontains=query_for_list) | Q(identifier__icontains=query_for_list) |
+                    Q(given_name__icontains=query_for_list) | Q(family_name__icontains=query_for_list)
+                )
+        patients_qs_ordered = base_qs.order_by('display_name')
+        total_patients = patients_qs_ordered.count()
+        patients_to_display = patients_qs_ordered[start_index_for_list : start_index_for_list + limit_for_list]
+        
+        patients_data_response = [] 
+        for p_model in patients_to_display: # 직렬화 로직 (get_django_patient_list_only와 동일하게)
+            display_name_final = "정보 없음"; person_data_final = {}; identifiers_final = []
+            if p_model.raw_openmrs_data and isinstance(p_model.raw_openmrs_data, dict):
+                raw = p_model.raw_openmrs_data; display_name_final = raw.get('display', display_name_final)
+                raw_ids = raw.get('identifiers', []);
+                if raw_ids and isinstance(raw_ids, list):
+                    for ident in raw_ids:
+                        if ident and ident.get('identifier'): identifiers_final.append({'identifier': ident.get('identifier')})
+                raw_person = raw.get('person', {});
+                if raw_person and isinstance(raw_person, dict):
+                    person_display_raw = raw_person.get('display', f"{raw_person.get('preferredName', {}).get('givenName', '')} {raw_person.get('preferredName', {}).get('familyName', '')}".strip())
+                    person_data_final = {'display': person_display_raw, 'gender': raw_person.get('gender'), 'birthdate': raw_person.get('birthdate'), 'preferredName': raw_person.get('preferredName', {})}
+            if display_name_final == "정보 없음": display_name_final = p_model.display_name or f"{p_model.given_name or ''} {p_model.family_name or ''}".strip() or (f"ID: {p_model.identifier}" if p_model.identifier else f"Patient (UUID: {str(p_model.uuid)[:8]})")
+            if not identifiers_final and p_model.identifier: identifiers_final.append({'identifier': p_model.identifier})
+            if not person_data_final or not person_data_final.get('display'):
+                person_display_model = f"{p_model.given_name or ''} {p_model.family_name or ''}".strip()
+                person_data_final = {'display': person_display_model, 'gender': p_model.gender or person_data_final.get('gender'), 'birthdate': (p_model.birthdate.isoformat() if isinstance(p_model.birthdate, date) else str(p_model.birthdate)) if p_model.birthdate else person_data_final.get('birthdate'), 'preferredName': {'givenName': p_model.given_name or person_data_final.get('preferredName', {}).get('givenName'), 'familyName': p_model.family_name or person_data_final.get('preferredName', {}).get('familyName')}}
+            patients_data_response.append({'uuid': str(p_model.uuid), 'display': display_name_final, 'identifiers': identifiers_final, 'person': person_data_final})
 
-        # 3. 가져온 데이터를 Django DB에 저장 또는 업데이트
+        response_payload = {'results': patients_data_response, 'totalCount': total_patients}
+        if sync_error_detail: response_payload['sync_error_detail'] = sync_error_detail
+        return Response(response_payload)
+    except Exception as e:
+        print(f"Django View (get_patients_and_sync_from_openmrs): Error fetching from local DB after sync: {e}")
+        return Response({'error': f'Error fetching list from Django DB: {str(e)}', 'sync_error_detail': sync_error_detail}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def create_patient_in_openmrs_and_django(request):
+    print("[Django View - create_patient_in_openmrs_and_django] Received request to create patient.")
+    data = request.data
+    
+    if not DEFAULT_IDENTIFIER_TYPE_UUID or not DEFAULT_LOCATION_UUID:
+        print("CRITICAL Django Setting ERROR: DEFAULT_OPENMRS_IDENTIFIER_TYPE_UUID or DEFAULT_OPENMRS_LOCATION_UUID is not correctly configured in settings.py.")
+        return Response({'error': 'Server configuration error for OpenMRS identifiers. Please contact admin.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    try:
+        given_name = data.get('givenName'); family_name = data.get('familyName'); gender = data.get('gender')
+        birthdate_str = data.get('birthdate') 
+        # React 폼에서 Identifier 입력을 받지 않으므로, 여기서도 identifier_value를 사용하지 않음
+        # identifier_value = data.get('identifier') # 이 라인 주석 처리 또는 삭제
+        
+        address1 = data.get('address1', ''); city_village = data.get('cityVillage', ''); phone_number_str = data.get('phoneNumber', '')
+
+        # 필수 필드 검증 (Identifier 제외, OpenMRS가 자동 생성 가정)
+        if not (given_name and family_name and gender and birthdate_str):
+            return Response({'error': 'Missing required fields (givenName, familyName, gender, birthdate)'}, status=status.HTTP_400_BAD_REQUEST)
+
+        openmrs_payload = {
+            "person": {"names": [{"givenName": given_name, "familyName": family_name, "preferred": True}],"gender": gender, "birthdate": birthdate_str, 
+                       "addresses": [{"address1": address1, "cityVillage": city_village, "preferred": True}] if address1 or city_village else [],
+                       "attributes": []},
+            "identifiers": [{ # OpenMRS가 ID를 자동 생성하더라도, 어떤 타입의 ID를 생성할지 알려주기 위해 필요할 수 있음
+                # "identifier": "이 필드를 보내지 않음", <--- 주석 처리 또는 제거
+                "identifierType": DEFAULT_IDENTIFIER_TYPE_UUID, 
+                "location": DEFAULT_LOCATION_UUID, 
+                "preferred": True 
+            }]
+        }
+        
+        if phone_number_str and PHONE_NUMBER_ATTRIBUTE_TYPE_UUID:
+            openmrs_payload["person"]["attributes"].append({
+                "attributeType": PHONE_NUMBER_ATTRIBUTE_TYPE_UUID, "value": phone_number_str
+            })
+        
+        api_url = f"{OPENMRS_API_BASE_URL}/patient"
+        print(f"Django View: Posting to OpenMRS API: {api_url} with payload: {json.dumps(openmrs_payload, indent=2)}")
+        omrs_response = requests.post(
+            api_url, json=openmrs_payload, auth=HTTPBasicAuth(OPENMRS_USERNAME, OPENMRS_PASSWORD),
+            headers={'Content-Type': 'application/json', 'Accept': 'application/json'}, timeout=15
+        )
+        omrs_response.raise_for_status()
+        created_openmrs_patient_data = omrs_response.json()
+        print(f"Django View: Successfully created patient in OpenMRS: {created_openmrs_patient_data.get('uuid')}")
+        
+        # Django DB 저장 로직
         try:
-            identifiers = openmrs_patient_data.get('identifiers', [])
-            main_identifier = identifiers[0].get('identifier') if identifiers else None
-            person_data = openmrs_patient_data.get('person', {})
-            preferred_name = person_data.get('preferredName', {})
-
-            patient_obj, created = OpenMRSPatient.objects.update_or_create(
-                uuid=valid_uuid,
+            new_patient_uuid = uuid.UUID(created_openmrs_patient_data.get('uuid'))
+            resp_identifiers = created_openmrs_patient_data.get('identifiers', [])
+            resp_main_identifier = resp_identifiers[0].get('identifier') if resp_identifiers and len(resp_identifiers) > 0 and resp_identifiers[0] else None
+            resp_person_data = created_openmrs_patient_data.get('person', {});
+            if not resp_person_data: resp_person_data = {}
+            resp_preferred_name = resp_person_data.get('preferredName', {});
+            if not resp_preferred_name: resp_preferred_name = {}
+            resp_birthdate_str = resp_person_data.get('birthdate'); birthdate_obj_for_db = None
+            if resp_birthdate_str:
+                try: birthdate_obj_for_db = datetime.fromisoformat(resp_birthdate_str.replace("Z", "+00:00")).date()
+                except ValueError:
+                    try: birthdate_obj_for_db = datetime.strptime(resp_birthdate_str.split('T')[0], '%Y-%m-%d').date()
+                    except ValueError: birthdate_obj_for_db = None
+            
+            OpenMRSPatient.objects.update_or_create(
+                uuid=new_patient_uuid,
                 defaults={
-                    'display_name': openmrs_patient_data.get('display'),
-                    'identifier': main_identifier,
-                    'given_name': preferred_name.get('givenName'),
-                    'family_name': preferred_name.get('familyName'),
-                    'gender': person_data.get('gender'),
-                    'birthdate': person_data.get('birthdate', None),
-                    'raw_openmrs_data': openmrs_patient_data # 원본 JSON 저장
+                    'display_name': created_openmrs_patient_data.get('display'), 
+                    'identifier': resp_main_identifier, 
+                    'given_name': resp_preferred_name.get('givenName'), 
+                    'family_name': resp_preferred_name.get('familyName'),
+                    'gender': resp_person_data.get('gender'), 
+                    'birthdate': birthdate_obj_for_db,
+                    'raw_openmrs_data': created_openmrs_patient_data
                 }
             )
-            if created:
-                print(f"Patient {valid_uuid} created in Django DB from OpenMRS data.")
-            else:
-                print(f"Patient {valid_uuid} updated in Django DB from OpenMRS data.")
         except Exception as db_error:
-            print(f"Error saving/updating patient {valid_uuid} to Django DB: {db_error}")
-            # DB 저장 실패는 전체 요청을 실패시키지 않고 OpenMRS 데이터만 반환 (선택적)
-
-        return JsonResponse(openmrs_patient_data)
-
-    except ValueError:
-        return JsonResponse({'error': 'Invalid UUID format'}, status=400)
+            print(f"Django View: Error saving created OpenMRS patient to Django DB: {db_error}")
+        return Response(created_openmrs_patient_data, status=status.HTTP_201_CREATED)
     except requests.exceptions.HTTPError as err:
-        if err.response.status_code == 404:
-            return JsonResponse({'error': f'Patient not found in OpenMRS (UUID: {patient_uuid})'}, status=404)
-        else:
-            # ... (이전과 동일한 상세 에러 처리) ...
-            error_message = f'Error fetching detail from OpenMRS: {err.response.status} {err.response.reason}'
-            error_detail = err.response.text if err.response else 'No response text'
-            print(f"HTTP error fetching detail from OpenMRS: {err} - {error_detail}")
-            return JsonResponse({'error': error_message, 'detail': error_detail}, status=err.response.status_code)
-    except requests.exceptions.RequestException as err:
-        print(f"Network error connecting to OpenMRS for patient detail: {err}")
-        return JsonResponse({'error': f'Network error connecting to OpenMRS: {err}'}, status=503)
+        error_message = f'Failed to create patient in OpenMRS: {err.response.status if err.response else "Unknown"} {err.response.reason if err.response else "Unknown"}'
+        error_detail_text = err.response.text if err.response else "No details from OpenMRS"
+        print(f"Django View: HTTP error creating patient in OpenMRS: {err} - Detail: {error_detail_text}")
+        return Response({'error': error_message, 'detail': error_detail_text}, status=err.response.status_code if err.response else status.HTTP_500_INTERNAL_SERVER_ERROR)
     except Exception as e:
-        print(f"An unexpected error occurred in get_openmrs_patient_detail: {e}")
-        return JsonResponse({'error': f'An unexpected server error occurred: {str(e)}'}, status=500)
+        print(f"Django View: Unexpected error in create_patient_in_openmrs_and_django: {type(e).__name__} - {e}")
+        return Response({'error': f'An unexpected server error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_openmrs_patient_detail(request, patient_uuid):
+    # ... (이전 답변의 get_openmrs_patient_detail 전체 코드와 동일하게 유지) ...
+    try:
+        valid_uuid = uuid.UUID(str(patient_uuid))
+        try:
+            patient_model_instance = OpenMRSPatient.objects.get(uuid=valid_uuid)
+            if patient_model_instance.raw_openmrs_data and isinstance(patient_model_instance.raw_openmrs_data, dict):
+                print(f"Django View (get_openmrs_patient_detail): Fetching patient {valid_uuid} from Django DB (using existing raw_openmrs_data)")
+                return Response(patient_model_instance.raw_openmrs_data)
+            print(f"Django View (get_openmrs_patient_detail): Patient {valid_uuid} found in Django DB but raw_openmrs_data is missing or invalid, will fetch fresh from OpenMRS...")
+        except OpenMRSPatient.DoesNotExist:
+            print(f"Django View (get_openmrs_patient_detail): Patient {valid_uuid} not found in Django DB, will fetch from OpenMRS...")
+
+        api_url = f"{OPENMRS_API_BASE_URL}/patient/{valid_uuid}?v=full"
+        print(f"Django View (get_openmrs_patient_detail): Requesting OpenMRS API: {api_url}")
+        
+        response_from_omrs = requests.get(
+            api_url, auth=HTTPBasicAuth(OPENMRS_USERNAME, OPENMRS_PASSWORD),
+            headers={'Content-Type': 'application/json', 'Accept': 'application/json'}, timeout=10
+        )
+        response_from_omrs.raise_for_status() 
+        openmrs_patient_data = response_from_omrs.json()
+        print(f"Django View (get_openmrs_patient_detail): Successfully fetched data from OpenMRS for patient {valid_uuid}")
+
+        try:
+            identifiers = openmrs_patient_data.get('identifiers', [])
+            main_identifier = identifiers[0].get('identifier') if identifiers and len(identifiers) > 0 and identifiers[0] else None
+            person_data = openmrs_patient_data.get('person', {})
+            if not person_data: person_data = {}
+            preferred_name = person_data.get('preferredName', {})
+            if not preferred_name: preferred_name = {}
+            birthdate_str = person_data.get('birthdate') 
+            birthdate_obj = None
+            if birthdate_str:
+                try: birthdate_obj = datetime.fromisoformat(birthdate_str.replace("Z", "+00:00")).date()
+                except ValueError:
+                    try: birthdate_obj = datetime.strptime(birthdate_str.split('T')[0], '%Y-%m-%d').date()
+                    except ValueError: birthdate_obj = None
+            
+            OpenMRSPatient.objects.update_or_create(
+                uuid=valid_uuid,
+                defaults={
+                    'display_name': openmrs_patient_data.get('display'), 'identifier': main_identifier,
+                    'given_name': preferred_name.get('givenName'), 'family_name': preferred_name.get('familyName'),
+                    'gender': person_data.get('gender'), 'birthdate': birthdate_obj, 
+                    'raw_openmrs_data': openmrs_patient_data
+                }
+            )
+        except Exception as db_error:
+            print(f"Django View (get_openmrs_patient_detail): Error saving/updating patient {valid_uuid} to Django DB: {type(db_error).__name__} - {db_error}")
+        return Response(openmrs_patient_data)
+    except ValueError: 
+        return Response({'error': 'Invalid UUID format provided.'}, status=status.HTTP_400_BAD_REQUEST)
+    except requests.exceptions.HTTPError as err:
+        if err.response and err.response.status_code == 404:
+            return Response({'error': f'Patient (UUID: {patient_uuid}) not found in OpenMRS.'}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            error_message = f'Error fetching detail from OpenMRS: {err.response.status if err.response else "Unknown Status"} {err.response.reason if err.response else "Unknown Reason"}'
+            error_detail_text = err.response.text if err.response else 'No response text from OpenMRS'
+            print(f"Django View (get_openmrs_patient_detail): HTTP error - {err} - Detail (first 500 chars): {error_detail_text[:500]}")
+            return Response({'error': error_message, 'detail': error_detail_text}, status=err.response.status_code if err.response else status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except requests.exceptions.RequestException as err:
+        print(f"Django View (get_openmrs_patient_detail): Network error - {err}")
+        return Response({'error': f'Network error connecting to OpenMRS: {str(err)}'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    except Exception as e:
+        print(f"Django View (get_openmrs_patient_detail): Unexpected error - {type(e).__name__}: {e}")
+        return Response({'error': f'An unexpected server error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
