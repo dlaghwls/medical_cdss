@@ -285,15 +285,17 @@
 // src/components/Common/MainView.js
 // src/components/Common/MainView.js
 // src/components/Common/MainView.js
+// src/components/Common/MainView.js
 import React, { useState, useEffect } from 'react';
+// 서비스 함수 경로 및 이름 확인!
 import { fetchLocalPatients, fetchAndSyncPatients, fetchPatientDetails, registerPatient } from '../../services/djangoApiService'; 
 
-// SinglePatientTester 컴포넌트 (이전과 동일)
+// 단일 환자 조회 테스트용 컴포넌트 (이전과 동일)
 const SinglePatientTester = () => {
   const [singlePatient, setSinglePatient] = useState(null);
   const [loadingSingle, setLoadingSingle] = useState(false);
   const [errorSingle, setErrorSingle] = useState(null);
-  const TEST_PATIENT_UUID = '6a7b618f-6bd0-4c48-bc6f-671426e4878c'; 
+  const TEST_PATIENT_UUID = '746e4d35-c73b-4e82-bb26-e348b6319252'; // 실제 테스트 가능한 UUID로 변경
 
   const loadSinglePatient = async () => {
     if (!TEST_PATIENT_UUID || TEST_PATIENT_UUID === '여기에_실제_환자_UUID를_입력하세요') {
@@ -344,7 +346,7 @@ const PatientRegistrationForm = ({ onRegistrationSuccess }) => {
   const [familyName, setFamilyName] = useState('');
   const [gender, setGender] = useState('M');
   const [birthdate, setBirthdate] = useState('');
-  // const [identifier, setIdentifier] = useState(''); // OpenMRS가 자동 생성하므로 제거
+  const [identifier, setIdentifier] = useState(''); // ★★★ Identifier 상태 다시 추가 ★★★
   const [address1, setAddress1] = useState(''); 
   const [cityVillage, setCityVillage] = useState(''); 
   const [phoneNumber, setPhoneNumber] = useState(''); 
@@ -357,15 +359,25 @@ const PatientRegistrationForm = ({ onRegistrationSuccess }) => {
     setError(null); setSuccessMessage(''); setLoading(true);
     try {
       const patientDataToRegister = { 
-        givenName, familyName, gender, birthdate, 
-        // identifier 제외
-        address1, cityVillage, phoneNumber
+        givenName, 
+        familyName, 
+        gender, 
+        birthdate, 
+        identifier, // ★★★ identifier 포함 ★★★
+        address1, 
+        cityVillage, 
+        phoneNumber 
       };
+      console.log("[PatientRegistrationForm] Data to send to Django:", patientDataToRegister);
       const registeredPatient = await registerPatient(patientDataToRegister);
-      // OpenMRS 응답에서 자동 생성된 Identifier를 가져와서 표시할 수 있습니다.
-      const displayIdentifier = registeredPatient.identifiers && registeredPatient.identifiers.length > 0 ? registeredPatient.identifiers[0].identifier : '자동 생성됨';
+      
+      const displayIdentifier = registeredPatient.identifiers && registeredPatient.identifiers.length > 0 
+                              ? registeredPatient.identifiers[0].identifier 
+                              : identifier; 
+                              
       setSuccessMessage(`환자 [${registeredPatient.display || `${givenName} ${familyName}`}] 등록 성공! UUID: ${registeredPatient.uuid}, Identifier: ${displayIdentifier}`);
-      setGivenName(''); setFamilyName(''); setGender('M'); setBirthdate('');
+      setGivenName(''); setFamilyName(''); setGender('M'); setBirthdate(''); 
+      setIdentifier(''); // ★★★ identifier 초기화 ★★★
       setAddress1(''); setCityVillage(''); setPhoneNumber('');
       if (onRegistrationSuccess) {
         onRegistrationSuccess(); 
@@ -396,9 +408,8 @@ const PatientRegistrationForm = ({ onRegistrationSuccess }) => {
         <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '10px'}}>
           <div><label>Given Name (이름):*</label><input type="text" value={givenName} onChange={(e) => setGivenName(e.target.value)} required style={{width: '90%', padding: '8px'}}/></div>
           <div><label>Family Name (성):*</label><input type="text" value={familyName} onChange={(e) => setFamilyName(e.target.value)} required style={{width: '90%', padding: '8px'}}/></div>
-          {/* Identifier 입력 필드는 OpenMRS 자동 생성을 가정하고 제거
-          <div><label>Identifier (환자 ID):*</label><input type="text" value={identifier} onChange={(e) => setIdentifier(e.target.value)} required placeholder="예: P10007Y" style={{width: '90%', padding: '8px'}}/></div>
-          */}
+          {/* ★★★ Identifier 입력 필드 다시 추가 ★★★ */}
+          <div><label>Identifier (환자 ID):*</label><input type="text" value={identifier} onChange={(e) => setIdentifier(e.target.value)} required placeholder="예: TESTID001 (새롭고 고유한 ID)" style={{width: '90%', padding: '8px'}}/></div>
           <div><label>Gender (성별):*</label><select value={gender} onChange={(e) => setGender(e.target.value)} style={{width: '95%', padding: '8px'}}><option value="M">Male</option><option value="F">Female</option><option value="O">Other</option></select></div>
           <div style={{gridColumn: 'span 2'}}><label>Birthdate (생년월일):*</label><input type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)} required style={{width: 'calc(47.5% - 5px)', padding: '8px'}} /></div>
           <div><label>Address 1 (주소 1):</label><input type="text" value={address1} onChange={(e) => setAddress1(e.target.value)} style={{width: '90%', padding: '8px'}}/></div>
@@ -415,7 +426,7 @@ const PatientRegistrationForm = ({ onRegistrationSuccess }) => {
   );
 };
 
-// 환자 목록 및 검색 컴포넌트
+// 환자 목록 및 검색 컴포넌트 (이전과 동일)
 const OpenMRSPatientList = ({ refreshTrigger }) => {
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -455,8 +466,6 @@ const OpenMRSPatientList = ({ refreshTrigger }) => {
 
   const handleSyncAndRefreshList = async () => {
     setError(null); setLoading(true);
-    // Django 뷰의 get_patients_and_sync_from_openmrs는 기본적으로 sync_q="1000"을 사용합니다.
-    // React 목록 검색창의 searchTerm은 Django DB 필터링에 사용됩니다.
     console.log("[OpenMRSPatientList] handleSyncAndRefreshList called. SearchTerm for Django DB filter:", searchTerm);
     try {
       const responseData = await fetchAndSyncPatients(searchTerm); 
@@ -468,7 +477,7 @@ const OpenMRSPatientList = ({ refreshTrigger }) => {
         console.warn("[OpenMRSPatientList] fetchAndSyncPatients returned unexpected data or no results:", responseData);
         setPatients([]); setTotalPatients(0);
       }
-    } catch (err) {
+    } catch (err) { 
       console.error("[OpenMRSPatientList] Error caught in handleSyncAndRefreshList (via Django):", err);
       let detailedErrorMessage = `환자 목록 로드/동기화 실패: ${err.message || '알 수 없는 오류'}`;
       if (err.response) { 
@@ -490,12 +499,7 @@ const OpenMRSPatientList = ({ refreshTrigger }) => {
     loadLocalPatientList(); 
   }, [refreshTrigger]);
 
-  const handleSearch = (e) => { 
-    if (e) e.preventDefault(); 
-    console.log("[OpenMRSPatientList] handleSearch called with searchTerm:", searchTerm);
-    loadLocalPatientList(searchTerm); 
-  };
-
+  const handleSearch = (e) => { if (e) e.preventDefault(); console.log("[OpenMRSPatientList] handleSearch called with searchTerm:", searchTerm); loadLocalPatientList(searchTerm); };
   console.log("[OpenMRSPatientList] Rendering component. Patients state:", patients);
 
   return (
@@ -536,27 +540,14 @@ const OpenMRSPatientList = ({ refreshTrigger }) => {
   );
 };
 
-// MainView 컴포넌트
+// MainView 컴포넌트 (이전과 동일)
 const MainView = ({ currentViewId, user }) => {
   let content = null;
   const [refreshListToggle, setRefreshListToggle] = useState(false);
-
-  const handlePatientRegistered = () => {
-    console.log("[MainView] Patient registered, toggling refresh trigger for list.");
-    setRefreshListToggle(prev => !prev); 
-  };
-
+  const handlePatientRegistered = () => { console.log("[MainView] Patient registered, toggling refresh trigger for list."); setRefreshListToggle(prev => !prev); };
   switch (currentViewId) {
     case 'patient_search':
-      content = (
-        <>
-          <SinglePatientTester />
-          <hr style={{margin: '20px 0'}} />
-          <PatientRegistrationForm onRegistrationSuccess={handlePatientRegistered} />
-          <hr style={{margin: '20px 0'}} />
-          <OpenMRSPatientList refreshTrigger={refreshListToggle} /> 
-        </>
-      );
+      content = ( <> <SinglePatientTester /> <hr style={{margin: '20px 0'}} /> <PatientRegistrationForm onRegistrationSuccess={handlePatientRegistered} /> <hr style={{margin: '20px 0'}} /> <OpenMRSPatientList refreshTrigger={refreshListToggle} /> </> );
       break;
     case 'vital_signs': content = <div>Vital Signs 모니터링 화면입니다.</div>; break;
     case 'pacs_viewer': content = <div>PACS 이미지 뷰어 화면입니다.</div>; break;
@@ -569,10 +560,6 @@ const MainView = ({ currentViewId, user }) => {
       content = ( <div> <h3>StrokeCare+ (메인 환자 현황판)</h3> <p>{user?.name}님, 환영합니다. 현재 메인 대시보드를 보고 계십니다.</p> <img src="https://user-images.githubusercontent.com/8344230/227930965-12e8270c-2694-49a9-8862-78f805952f03.png" alt="Main Dashboard Chart Example" style={{maxWidth: '100%', height: 'auto', marginTop: '20px', border: '1px solid #ddd'}} /> </div> );
       break;
   }
-  return (
-    <div className="main-view" style={{ flexGrow: 1, padding: '20px', overflowY: 'auto', height: 'calc(100vh - 70px)' }}>
-      {content}
-    </div>
-  );
+  return ( <div className="main-view" style={{ flexGrow: 1, padding: '20px', overflowY: 'auto', height: 'calc(100vh - 70px)' }}> {content} </div> );
 };
 export default MainView;

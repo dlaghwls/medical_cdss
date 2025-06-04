@@ -1,19 +1,21 @@
-version: '3.8'
-
 services:
-  postgresql:
+  # Django 백엔드용 PostgreSQL
+  postgres:
     image: postgres:14
     container_name: medical-postgres
     environment:
       POSTGRES_DB: medical_cdss
-      POSTGRES_USER: medical_user
-      POSTGRES_PASSWORD: medical_pass123
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
+    networks:
+      - medical-network
 
+  # Django 백엔드용 Redis
   redis:
     image: redis:7-alpine
     container_name: medical-redis
@@ -22,43 +24,77 @@ services:
     volumes:
       - redis_data:/data
     restart: unless-stopped
+    networks:
+      - medical-network
 
-  # OpenMRS는 별도로 MySQL과 함께 실행
-  mysql:
-    image: mysql:5.7
-    container_name: openmrs-mysql
+  # OpenMRS용 MariaDB (MySQL 호환)
+  mariadb:
+    image: mariadb:10.11
+    container_name: openmrs-mariadb
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: Admin123
       MYSQL_DATABASE: openmrs
       MYSQL_USER: openmrs
       MYSQL_PASSWORD: Admin123
+      MYSQL_ROOT_PASSWORD: Admin123
     ports:
       - "3306:3306"
+    command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci
     volumes:
-      - mysql_data:/var/lib/mysql
-    command: --character-set-server=utf8 --collation-server=utf8_general_ci
-    restart: unless-stopped
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - openmrs-network
 
-  openmrs:
-    image: openmrs/openmrs-reference-application-distro:latest
-    container_name: openmrs-app
+  # OpenMRS 백엔드
+  openmrs-backend:
+    image: openmrs/openmrs-reference-application-3-backend:3.0.0
+    container_name: openmrs-backend-app
+    restart: unless-stopped
     environment:
-      DB_HOST: mysql
-      DB_DATABASE: openmrs
-      DB_USERNAME: openmrs
-      DB_PASSWORD: Admin123
-      DB_CREATE_TABLES: "true"
-      DB_AUTO_UPDATE: "true"
-      MODULE_WEB_ADMIN: "true"
+      OMRS_CONFIG_CONNECTION_SERVER: mariadb
+      OMRS_CONFIG_CONNECTION_DATABASE: openmrs
+      OMRS_CONFIG_CONNECTION_USERNAME: openmrs
+      OMRS_CONFIG_CONNECTION_PASSWORD: Admin123
+      OMRS_CONFIG_AUTO_UPDATE_DATABASE: "true"
+      OMRS_CONFIG_CREATE_TABLES: "true"
     ports:
       - "8080:8080"
-    depends_on:
-      - mysql
     volumes:
-      - openmrs_data:/usr/local/tomcat/.OpenMRS
-    restart: unless-stopped
+      - openmrs_data:/openmrs/data
+    depends_on:
+      - mariadb
+    networks:
+      - openmrs-network
 
-  # Celery Worker
+  # OpenMRS 프론트엔드
+  openmrs-frontend:
+    image: openmrs/openmrs-reference-application-3-frontend:3.0.0
+    container_name: openmrs-frontend-app
+    restart: unless-stopped
+    environment:
+      SPA_PATH: /openmrs/spa
+      API_URL: http://openmrs-backend:8080/openmrs
+    depends_on:
+      - openmrs-backend
+    networks:
+      - openmrs-network
+
+# OpenMRS 게이트웨이
+  gateway:
+    image: nginx:alpine
+    container_name: openmrs-gateway
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - openmrs-frontend
+      - openmrs-backend
+    networks:
+      - openmrs-network
+
+  # Django Celery Worker
   celery_worker:
     build: ./backend
     container_name: medical-celery-worker
@@ -67,13 +103,15 @@ services:
       - ./backend:/app
     depends_on:
       - redis
-      - postgresql
+      - postgres
     environment:
-      - DATABASE_URL=postgresql://medical_user:medical_pass123@postgresql:5432/medical_cdss
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/medical_cdss
       - REDIS_URL=redis://redis:6379/0
     restart: unless-stopped
+    networks:
+      - medical-network
 
-  # Celery Beat
+  # Django Celery Beat
   celery_beat:
     build: ./backend
     container_name: medical-celery-beat
@@ -82,11 +120,52 @@ services:
       - ./backend:/app
     depends_on:
       - redis
-      - postgresql
+      - postgres
     environment:
-      - DATABASE_URL=postgresql://medical_user:medical_pass123@postgresql:5432/medical_cdss
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/medical_cdss
       - REDIS_URL=redis://redis:6379/0
     restart: unless-stopped
+    networks:
+      - medical-network
+
+  # Django 백엔드 웹서버
+  django-backend:
+    build: ./backend
+    container_name: medical-django-backend
+    command: python manage.py runserver 0.0.0.0:8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./frontend:/frontend
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/medical_cdss
+      - REDIS_URL=redis://redis:6379/0
+      - DB_HOST=postgres
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=medical_cdss
+    restart: unless-stopped
+    networks:
+      - medical-network
+
+  # React 프론트엔드
+  react-frontend:
+    build: ./frontend
+    container_name: medical-react-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    restart: unless-stopped
+    networks:
+      - medical-network
 
   # Flower 모니터링
   flower:
@@ -102,9 +181,17 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379/0
     restart: unless-stopped
+    networks:
+      - medical-network
 
 volumes:
   postgres_data:
   redis_data:
-  mysql_data:
+  mariadb_data:
   openmrs_data:
+
+networks:
+  medical-network:
+    driver: bridge
+  openmrs-network:
+    driver: bridge

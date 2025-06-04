@@ -14,7 +14,8 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+# Docker 환경을 고려한 ALLOWED_HOSTS
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '*', 'django-backend', 'medical-django-backend']
 
 # Application definition
 INSTALLED_APPS = [
@@ -24,8 +25,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
-    # Third party apps
+    'openmrs_integration',
+
     'rest_framework',
     'corsheaders',
     
@@ -74,9 +75,9 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.getenv('DB_NAME', 'medical_cdss'),
-        'USER': os.getenv('DB_USER', 'medical_user'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'medical_pass123'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'USER': os.getenv('DB_USER', 'postgres'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'postgres'),
+        'HOST': os.getenv('DB_HOST', 'postgres'),  # Docker 환경에서는 서비스명 사용
         'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
@@ -114,35 +115,78 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Django REST Framework
+# Django REST Framework - 개발 환경용 설정
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.AllowAny',  # 개발 환경에서는 인증 없이 허용
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
 }
 
-# CORS settings for React frontend
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # React development server
-    "http://127.0.0.1:3000",
-]
-
+# CORS 설정 - 개발환경에서 완전 개방
+CORS_ALLOW_ALL_ORIGINS = True  # 모든 오리진 허용 (개발용)
 CORS_ALLOW_CREDENTIALS = True
 
-# OpenMRS Configuration
-OPENMRS_BASE_URL = os.getenv('OPENMRS_URL', 'http://localhost:8080/openmrs')
+# 명시적 허용 오리진
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://0.0.0.0:3000",
+    "http://medical-react-frontend:3000",
+    "http://react-frontend:3000",
+]
+
+# 허용할 헤더들
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'cache-control',
+    'pragma',
+    'if-modified-since',
+]
+
+# 허용할 HTTP 메서드들
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+# Preflight 요청 캐시 시간 (초)
+CORS_PREFLIGHT_MAX_AGE = 86400
+
+# CSRF 설정
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+
+# OpenMRS Configuration - Docker 환경용
+OPENMRS_BASE_URL = os.getenv('OPENMRS_URL', 'http://openmrs-backend-app:8080/openmrs')
+OPENMRS_API_BASE_URL = f"{OPENMRS_BASE_URL}/ws/rest/v1"
 OPENMRS_USERNAME = os.getenv('OPENMRS_USERNAME', 'admin')
 OPENMRS_PASSWORD = os.getenv('OPENMRS_PASSWORD', 'Admin123')
 
-# Celery 설정
-CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
-CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/0'
+# Celery 설정 - Docker 환경용
+CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://redis:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://redis:6379/0')
 CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -162,5 +206,27 @@ CELERY_BEAT_SCHEDULE = {
     'cleanup-old-tasks': {
         'task': 'ml_models.tasks.cleanup_old_tasks',
         'schedule': 86400.0,  # 24시간마다 실행
+    },
+}
+
+# 로깅 설정 (디버깅용)
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'openmrs_integration': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
     },
 }
