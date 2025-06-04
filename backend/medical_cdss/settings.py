@@ -1,4 +1,3 @@
-# medical_cdss/settings.py
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -6,21 +5,17 @@ from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load environment variables from .env file (if you are using one)
-load_dotenv() 
+# Load environment variables
+load_dotenv()
 
 # SECURITY WARNING: keep the secret key used in production secret!
-# .env 파일에서 SECRET_KEY를 가져오거나, 없으면 Django가 자동으로 생성한 키 또는 개발용 임시 키 사용
-# 실제 배포 시에는 반드시 안전한 고유 키로 설정해야 합니다.
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-a_very_secure_default_key_for_development_only_12345')
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() == 'true'
+DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-# ALLOWED_HOSTS: 환경 변수에서 가져오거나, 개발 시에는 localhost, 127.0.0.1을 기본으로 사용
-ALLOWED_HOSTS_STR = os.getenv('DJANGO_ALLOWED_HOSTS')
-ALLOWED_HOSTS = ALLOWED_HOSTS_STR.split(',') if ALLOWED_HOSTS_STR else ['localhost', '127.0.0.1']
-
+# Docker 환경을 고려한 ALLOWED_HOSTS
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '*', 'django-backend', 'medical-django-backend']
 
 # Application definition
 INSTALLED_APPS = [
@@ -30,25 +25,22 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'openmrs_integration',
+
+    'rest_framework',
+    'corsheaders',
     
-    # Third party apps
-    'rest_framework',       # Django REST framework
-    'corsheaders',          # CORS (Cross-Origin Resource Sharing) 처리
-    # 'django_celery_beat',    # <--- Celery 사용 안 하므로 제거 또는 주석 처리
-    # 'django_celery_results', # <--- Celery 사용 안 하므로 제거 또는 주석 처리
-    
-    # Local apps (앱 Config 클래스 사용 권장)
-    'core.apps.CoreConfig', 
-    'patients.apps.PatientsConfig',
-    'visits.apps.VisitsConfig',
-    'diagnoses.apps.DiagnosesConfig',
-    'cdss.apps.CdssConfig',
-    'ml_models.apps.MlModelsConfig',
-    'openmrs_integration.apps.OpenmrsIntegrationConfig', # openmrs_integration 앱은 하나만 등록
+    # Local apps
+    'core',
+    'patients',
+    'visits',
+    'diagnoses',
+    'cdss',
+    'ml_models',
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware', # 가능한 한 상단에 위치
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -58,12 +50,12 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'medical_cdss.urls' # medical_cdss는 Django 프로젝트 이름
+ROOT_URLCONF = 'medical_cdss.urls'
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'], # 프로젝트 레벨 템플릿 폴더 (필요시)
+        'DIRS': [],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -76,11 +68,9 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'medical_cdss.wsgi.application' # medical_cdss는 Django 프로젝트 이름
-
+WSGI_APPLICATION = 'medical_cdss.wsgi.application'
 
 # Database
-# https://docs.djangoproject.com/en/dev/ref/settings/#databases
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -93,98 +83,151 @@ DATABASES = {
     }
 }
 
-
 # Password validation
-# https://docs.djangoproject.com/en/dev/ref/settings/#auth-password-validators
 AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',},
-    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',},
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
 ]
 
-
 # Internationalization
-# https://docs.djangoproject.com/en/dev/topics/i18n/
 LANGUAGE_CODE = 'ko-kr'
 TIME_ZONE = 'Asia/Seoul'
 USE_I18N = True
-USE_TZ = True # 시간대 관련 처리를 위해 True 권장
-
+USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/dev/howto/static-files/
-STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles' # 배포 시 정적 파일이 모이는 경로
+STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Media files (사용자가 업로드하는 파일)
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'mediafiles' # MEDIA_ROOT는 STATIC_ROOT와 다른 경로로 설정
-
+# Media files
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Default primary key field type
-# https://docs.djangoproject.com/en/dev/ref/settings/#default-auto-field
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-
-# Django REST Framework
+# Django REST Framework - 개발 환경용 설정
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.TokenAuthentication', # Token 기반 인증 사용 시
+        'rest_framework.authentication.TokenAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        # 개발 초기에는 AllowAny로 설정하여 인증 없이 테스트 용이하게 할 수 있습니다.
-        # 'rest_framework.permissions.AllowAny', 
-        'rest_framework.permissions.IsAuthenticated', # 기본적으로 인증된 사용자만 접근 허용
+        'rest_framework.permissions.AllowAny',  # 개발 환경에서는 인증 없이 허용
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20, # 한 페이지에 보여줄 아이템 수
+    'PAGE_SIZE': 20,
 }
 
+# CORS 설정 - 개발환경에서 완전 개방
+CORS_ALLOW_ALL_ORIGINS = True  # 모든 오리진 허용 (개발용)
+CORS_ALLOW_CREDENTIALS = True
 
-# CORS (Cross-Origin Resource Sharing) settings
-# React 개발 서버 주소 (예: http://localhost:3000 또는 3001 등)
-CORS_ALLOWED_ORIGINS_STR = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001')
-CORS_ALLOWED_ORIGINS = CORS_ALLOWED_ORIGINS_STR.split(',') if CORS_ALLOWED_ORIGINS_STR else []
+# 명시적 허용 오리진
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://0.0.0.0:3000",
+    "http://medical-react-frontend:3000",
+    "http://react-frontend:3000",
+]
 
-CORS_ALLOW_CREDENTIALS = True # 쿠키 등 자격 증명 허용 여부
+# 허용할 헤더들
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'cache-control',
+    'pragma',
+    'if-modified-since',
+]
 
+# 허용할 HTTP 메서드들
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
 
-# # Celery Configuration (Celery 사용 안 하므로 주석 처리 또는 삭제)
-# REDIS_HOST = os.getenv('REDIS_HOST', 'localhost') # Django 로컬 실행, Redis Docker 가정
-# REDIS_PORT = os.getenv('REDIS_PORT', '6379')
-# CELERY_BROKER_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/0'
-# CELERY_RESULT_BACKEND = f'redis://{REDIS_HOST}:{REDIS_PORT}/0'
-# CELERY_ACCEPT_CONTENT = ['json']
-# CELERY_TASK_SERIALIZER = 'json'
-# CELERY_RESULT_SERIALIZER = 'json'
-# CELERY_TIMEZONE = TIME_ZONE
-# CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
-# CELERY_BEAT_SCHEDULE = {
-#     'sync-openmrs-patients-every-10-minutes': {
-#         'task': 'openmrs_integration.tasks.run_sync_openmrs_patients_command_task',
-#         'schedule': crontab(minute='*/10'), 
-#         'kwargs': {'query_term': "1000", 'limit': 50, 'max_patients': 200} 
-#     },
-# }
+# Preflight 요청 캐시 시간 (초)
+CORS_PREFLIGHT_MAX_AGE = 86400
 
+# CSRF 설정
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
 
-# OpenMRS Configuration
-OPENMRS_BASE_URL_ENV = os.getenv('OPENMRS_BASE_URL', 'http://localhost:8080/openmrs')
-OPENMRS_API_PATH_ENV = os.getenv('OPENMRS_API_PATH', '/ws/rest/v1')
-OPENMRS_USERNAME_ENV = os.getenv('OPENMRS_USERNAME', 'admin') # 환경 변수명 일관성
-OPENMRS_PASSWORD_ENV = os.getenv('OPENMRS_PASSWORD', 'Admin123') # 환경 변수명 일관성
+# OpenMRS Configuration - Docker 환경용
+OPENMRS_BASE_URL = os.getenv('OPENMRS_URL', 'http://openmrs-backend-app:8080/openmrs')
+OPENMRS_API_BASE_URL = f"{OPENMRS_BASE_URL}/ws/rest/v1"
+OPENMRS_USERNAME = os.getenv('OPENMRS_USERNAME', 'admin')
+OPENMRS_PASSWORD = os.getenv('OPENMRS_PASSWORD', 'Admin123')
 
-# settings 모듈 내에서 사용할 최종 변수 (views.py 등에서 import settings 후 settings.OPENMRS_API_BASE_URL 등으로 사용)
-OPENMRS_API_BASE_URL = f"{OPENMRS_BASE_URL_ENV.rstrip('/')}{OPENMRS_API_PATH_ENV.rstrip('/')}"
-OPENMRS_USERNAME = OPENMRS_USERNAME_ENV
-OPENMRS_PASSWORD = OPENMRS_PASSWORD_ENV
+# Celery 설정 - Docker 환경용
+CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://redis:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://redis:6379/0')
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Seoul'
+CELERY_ENABLE_UTC = True
 
-DEFAULT_OPENMRS_SYNC_QUERY = os.getenv('DEFAULT_OPENMRS_SYNC_QUERY', '1000')
-OPENMRS_PATIENT_LIST_DEFAULT_LIMIT = int(os.getenv('OPENMRS_PATIENT_LIST_DEFAULT_LIMIT', '50'))
+# Celery 태스크 라우팅
+CELERY_TASK_ROUTES = {
+    'ml_models.tasks.predict_complications_task': {'queue': 'ml_predictions'},
+    'ml_models.tasks.predict_stroke_mortality_task': {'queue': 'ml_predictions'},
+    'ml_models.tasks.assess_sod2_status_task': {'queue': 'ml_predictions'},
+    'ml_models.tasks.cleanup_old_tasks': {'queue': 'maintenance'},
+}
 
-# OpenMRS 환자 등록 시 사용할 기본 Identifier Type 및 Location UUID (views.py에서 사용)
-# 이 값들은 실제 OpenMRS 시스템에서 확인하고 .env 파일에 설정하거나 여기에 직접 입력해야 합니다.
-DEFAULT_OPENMRS_IDENTIFIER_TYPE_UUID = os.getenv('DEFAULT_OPENMRS_IDENTIFIER_TYPE_UUID', "05a29f94-c0ed-11e2-94be-8c13b969e334") 
-DEFAULT_OPENMRS_LOCATION_UUID = os.getenv('DEFAULT_OPENMRS_LOCATION_UUID', "8d6c993e-c2cc-11de-8d13-0010c6dffd0f")
+# Celery Beat 스케줄 (정기 작업)
+CELERY_BEAT_SCHEDULE = {
+    'cleanup-old-tasks': {
+        'task': 'ml_models.tasks.cleanup_old_tasks',
+        'schedule': 86400.0,  # 24시간마다 실행
+    },
+}
+
+# 로깅 설정 (디버깅용)
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'openmrs_integration': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}
