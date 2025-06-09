@@ -16,4 +16,5 @@ urlpatterns = [
     
     # 단일 환자 상세 조회 (OpenMRS에서 가져와 Django DB에 저장/업데이트)
     path('patients/<str:patient_uuid>/', views.get_openmrs_patient_detail, name='omrs_patient_detail'),
+    
 ]

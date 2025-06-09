@@ -1,13 +1,24 @@
 // src/pages/DashboardPage.js
+
 import React from 'react';
-import MainLayout from '../layouts/MainLayout';
 
 const DashboardPage = () => {
-  // MainLayout이 대부분의 로직을 처리하므로, DashboardPage는 간단해질 수 있습니다.
-  // 또는 MainLayout을 사용하지 않고 여기서 직접 Sidebar와 MainView를 조합할 수도 있습니다.
-  // 아래는 MainLayout을 사용하는 예시입니다.
   return (
-    <MainLayout />
+    <div style={{ padding: '20px' }}>
+      <h3>StrokeCare+ (메인 환자 현황판)</h3>
+      <p>여기에 대시보드 차트나 요약 정보를 표시하세요.</p>
+      {/* 예시 대시보드 이미지 */}
+      <img
+        src="https://user-images.githubusercontent.com/8344230/227930965-12e8270c-2694-49a9-8862-78f805952f03.png"
+        alt="Main Dashboard Example"
+        style={{
+          maxWidth: '100%',
+          height: 'auto',
+          marginTop: '20px',
+          border: '1px solid #ddd',
+        }}
+      />
+    </div>
   );
 };
 

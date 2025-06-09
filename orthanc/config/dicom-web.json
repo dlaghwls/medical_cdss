@@ -1,0 +1,17 @@
+{
+  "Enable": true,
+  "Port": 8043,
+  "Ssl": false,
+
+  "EnableHttpServer": true,
+
+  "RemoteAccessAllowed": true,
+
+  "HttpServer": {
+    "EnableCors": true,
+    "CorsAllowOrigin": ["*"],
+    "CorsAllowMethods": ["GET","POST","PUT","DELETE","OPTIONS"],
+    "CorsAllowHeaders": ["*"],
+    "CorsExposeHeaders": ["Content-Range"]
+  }
+}

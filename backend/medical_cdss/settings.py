@@ -6,8 +6,9 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load environment variables
-load_dotenv()
-
+dotenv_path = BASE_DIR / '.env'
+load_dotenv(dotenv_path=dotenv_path)
+print(f"DEBUG: Attempting to load .env from: {dotenv_path}") 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key')
 
@@ -81,6 +82,8 @@ DATABASES = {
         'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
+
+CORS_ORIGIN_ALLOW_ALL = True
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -178,11 +181,24 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8000",
 ]
 
-# OpenMRS Configuration - Docker 환경용
-OPENMRS_BASE_URL = os.getenv('OPENMRS_URL', 'http://openmrs-backend-app:8080/openmrs')
-OPENMRS_API_BASE_URL = f"{OPENMRS_BASE_URL}/ws/rest/v1"
-OPENMRS_USERNAME = os.getenv('OPENMRS_USERNAME', 'admin')
-OPENMRS_PASSWORD = os.getenv('OPENMRS_PASSWORD', 'Admin123')
+# OpenMRS Configuration
+OPENMRS_BASE_URL_ENV = os.getenv('OPENMRS_BASE_URL', 'http://openmrs-backend-app:8080/openmrs') # docker-compose 서비스 이름 사용
+OPENMRS_API_PATH_ENV = os.getenv('OPENMRS_API_PATH', '/ws/rest/v1')
+OPENMRS_USERNAME_ENV = os.getenv('OPENMRS_USERNAME', 'admin_fallback')
+OPENMRS_PASSWORD_ENV = os.getenv('OPENMRS_PASSWORD', 'Admin123_fallback')
+
+OPENMRS_API_BASE_URL = f"{OPENMRS_BASE_URL_ENV.rstrip('/')}{OPENMRS_API_PATH_ENV.rstrip('/')}"
+OPENMRS_USERNAME = OPENMRS_USERNAME_ENV
+OPENMRS_PASSWORD = OPENMRS_PASSWORD_ENV
+
+DEFAULT_OPENMRS_SYNC_QUERY = os.getenv('DEFAULT_OPENMRS_SYNC_QUERY', '1000') # 기본 동기화 쿼리 (예: 최근 1000명)
+OPENMRS_PATIENT_LIST_DEFAULT_LIMIT = int(os.getenv('OPENMRS_PATIENT_LIST_DEFAULT_LIMIT', '50'))
+
+# OpenMRS 환자 등록 시 사용할 기본 Identifier Type 및 Location UUID
+# .env 파일에서 이 값들을 설정하거나, 여기서 기본값을 OpenMRS에 실제 존재하는 식별자 유형 및 위치 UUID로 지정합니다.
+DEFAULT_OPENMRS_IDENTIFIER_TYPE_UUID = os.getenv('DEFAULT_OPENMRS_IDENTIFIER_TYPE_UUID', "FALLBACK_IDENTIFIER_TYPE_UUID_ERROR")
+DEFAULT_OPENMRS_LOCATION_UUID = os.getenv('DEFAULT_OPENMRS_LOCATION_UUID', "FALLBACK_LOCATION_UUID_ERROR")
+OPENMRS_PHONE_ATTRIBUTE_TYPE_UUID = os.getenv('OPENMRS_PHONE_ATTRIBUTE_TYPE_UUID', "FALLBACK_PHONE_ATTR_UUID_ERROR")
 
 # Celery 설정 - Docker 환경용
 CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://redis:6379/0')

@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Common/Sidebar';
 import MainView from '../components/Common/MainView';
+
 // import './MainLayout.css'; // 필요시 CSS
 
 const MainLayout = ({ children }) => { // children은 현재 사용하지 않지만, 일반적인 레이아웃 패턴

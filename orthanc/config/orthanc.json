@@ -1,0 +1,25 @@
+{
+  "Name": "Orthanc",
+  "StorageDirectory": "/var/lib/orthanc/db",
+  "DicomPort": 4242,
+  "HttpPort": 8042,
+  "RemoteAccessAllowed": true,
+  "AuthenticationEnabled": false,
+  "RegisteredUsers": {
+    "admin": "orthanc123"
+  },
+  "KeepAlive": true,
+
+  "Plugins": [
+    "/etc/orthanc/plugins",                     
+    "/usr/local/share/orthanc/plugins"           
+  ],
+
+  "HttpServer": {
+    "EnableCors": true,
+    "CorsAllowOrigin": ["*"],
+    "CorsAllowMethods": ["GET","POST","PUT","DELETE","OPTIONS"],
+    "CorsAllowHeaders": ["*"],
+    "CorsExposeHeaders": ["Content-Range"]
+    }
+}

@@ -78,24 +78,56 @@ export const fetchAndSyncPatients = async (query = '', syncQuery = "1000") => {
  * Django API를 통해 특정 환자의 상세 정보를 조회합니다.
  * (Django는 필요시 OpenMRS에서 데이터를 가져와 DB에 저장/업데이트합니다)
  */
+/**
+ * @param {string} patientUuid  — 가져올 환자의 UUID
+ * @returns {Promise<Object>}   — Django 백엔드에서 반환한 환자 정보 객체
+ *
+ * 예: Django urls.py에 아래와 같이 path가 정의되어 있어야 합니다.
+ *     path('patients/<str:patient_uuid>/', views.patient_detail, name='patient-detail')
+ *
+ * 호출 예시: GET http://localhost:8000/patients/f07ad129-df4d-4332-8afe-ca692ab33901/
+ */
 export const fetchPatientDetails = async (patientUuid) => {
   if (!patientUuid) {
     const errorMessage = 'Patient UUID is required for fetchPatientDetails.';
     console.error(errorMessage);
     throw new Error(errorMessage);
   }
+
   try {
-    // Django urls.py: path('patients/<str:patient_uuid>/', ...)
-    const requestUrl = `/patients/${patientUuid}/`; 
-    console.log(`Requesting Django API (fetchPatientDetails for ${patientUuid}): ${apiClient.defaults.baseURL}${requestUrl}`);
+    // Django 측 URL 경로에 맞춰서 요청합니다.
+    // 예: /patients/{patientUuid}/
+    const requestUrl = `/patients/${patientUuid}/`;
+
+    console.log(
+      `[djangoApiService] Requesting Django API (fetchPatientDetails for ${patientUuid}):`,
+      apiClient.defaults.baseURL + requestUrl
+    );
+
+    // 실제 GET 요청
     const response = await apiClient.get(requestUrl);
-    return response.data; 
+
+    // 성공적으로 응답이 오면 response.data를 반환
+    return response.data;
   } catch (error) {
-    console.error(`Error fetching patient ${patientUuid} details from Django backend:`, error);
+    console.error(
+      `[djangoApiService] Error fetching patient ${patientUuid} details from Django backend:`,
+      error
+    );
+
+    // 서버에서 온 에러 응답(예: 404, 500 등)을 콘솔에 출력
     if (error.response) {
-      console.error(`Error response data from Django (for ${patientUuid}):`, error.response.data);
-      console.error(`Error response status from Django (for ${patientUuid}): ${error.response.status}`);
+      console.error(
+        `[djangoApiService] Error response data from Django (for ${patientUuid}):`,
+        error.response.data
+      );
+      console.error(
+        `[djangoApiService] Error response status from Django (for ${patientUuid}):`,
+        error.response.status
+      );
     }
+
+    // 에러를 던져서 호출부에서 처리하도록 함
     throw error;
   }
 };
