@@ -1,227 +1,10 @@
-// // frontend/src/components/LabResultsView.js
-
-// import React, { useState, useEffect } from 'react';
-// import { registerLabResult, fetchLabResultsForPatient } from '../../services/djangoApiService';
-// import { Line } from 'react-chartjs-2';
-// import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
-
-// // Chart.js 모듈 등록 (한번만 하면 됨)
-// ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
-
-// const LabResultsView = ({ selectedPatient, onBackToPatientList }) => {
-//   const [testName, setTestName] = useState('');
-//   const [testValue, setTestValue] = useState('');
-//   const [unit, setUnit] = useState('');
-//   const [notes, setNotes] = useState('');
-//   const [loading, setLoading] = useState(false);
-//   const [error, setError] = useState(null);
-//   const [successMessage, setSuccessMessage] = useState('');
-//   // { '검사항목1': [result1, result2, ...], '검사항목2': [...] } 형태로 저장
-//   const [patientLabResults, setPatientLabResults] = useState({});
-
-//   useEffect(() => {
-//     if (selectedPatient && selectedPatient.uuid) {
-//       loadLabResults(selectedPatient.uuid);
-//     } else {
-//       setPatientLabResults({}); // 환자 없으면 결과 초기화
-//     }
-//   }, [selectedPatient]);
-
-//   const loadLabResults = async (patientUuid) => {
-//     setLoading(true);
-//     setError(null);
-//     try {
-//       const results = await fetchLabResultsForPatient(patientUuid);
-//       // test_name별로 데이터를 그룹화하여 그래프에 적합한 형태로 변환
-//       const groupedResults = results.reduce((acc, current) => {
-//         if (!acc[current.test_name]) {
-//           acc[current.test_name] = [];
-//         }
-//         acc[current.test_name].push(current);
-//         return acc;
-//       }, {});
-//       setPatientLabResults(groupedResults);
-//     } catch (err) {
-//       console.error("Error loading lab results:", err);
-//       setError("검사 결과 로드 실패: " + (err.message || err.response?.data?.error || '알 수 없는 오류'));
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   const handleSubmit = async (e) => {
-//     e.preventDefault();
-//     setError(null);
-//     setSuccessMessage('');
-//     setLoading(true);
-
-//     if (!selectedPatient || !selectedPatient.uuid) {
-//       setError("환자가 선택되지 않았습니다.");
-//       setLoading(false);
-//       return;
-//     }
-
-//     try {
-//       const newLabResult = {
-//         patient_uuid: selectedPatient.uuid,
-//         test_name: testName,
-//         test_value: parseFloat(testValue), // 숫자로 변환
-//         unit,
-//         notes,
-//       };
-//       await registerLabResult(newLabResult);
-//       setSuccessMessage('검사 결과가 성공적으로 등록되었습니다.');
-//       // 폼 필드 초기화
-//       setTestName('');
-//       setTestValue('');
-//       setUnit('');
-//       setNotes('');
-//       loadLabResults(selectedPatient.uuid); // 등록 후 목록 새로고침
-//     } catch (err) {
-//       console.error("Error registering lab result:", err);
-//       setError("검사 결과 등록 실패: " + (err.response?.data?.error || err.message || '알 수 없는 오류'));
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   // 그래프 데이터를 생성하는 함수
-//   const generateChartData = (resultsForSingleTest) => {
-//     // 단일 검사 항목에 대한 결과만 받아서 처리
-//     // recorded_at을 기준으로 정렬
-//     const sortedData = resultsForSingleTest.sort((a, b) => new Date(a.recorded_at) - new Date(b.recorded_at));
-    
-//     // 각 데이터 포인트의 날짜 레이블 (MM-DD 형식)
-//     const labels = sortedData.map(res => new Date(res.recorded_at).toLocaleDateString(undefined, { month: '2-digit', day: '2-digit' }));
-    
-//     // 검사 수치
-//     const dataValues = sortedData.map(res => res.test_value);
-
-//     // 단위는 해당 검사 항목의 첫 번째 결과에서 가져옴 (모두 동일하다고 가정)
-//     const displayUnit = sortedData.length > 0 ? sortedData[0].unit || '' : '';
-
-//     return {
-//       labels: labels,
-//       datasets: [
-//         {
-//           label: `${sortedData.length > 0 ? sortedData[0].test_name : ''} (${displayUnit})`,
-//           data: dataValues,
-//           borderColor: 'rgb(75, 192, 192)', // 단일 그래프이므로 고정 색상
-//           backgroundColor: 'rgba(75, 192, 192, 0.2)',
-//           tension: 0.1,
-//           fill: true,
-//         },
-//       ],
-//     };
-//   };
-
-//   const chartOptions = (testNameForTitle) => ({
-//     responsive: true,
-//     plugins: {
-//       legend: {
-//         position: 'top',
-//       },
-//       title: {
-//         display: true,
-//         text: `${selectedPatient?.display || '선택된 환자'}의 ${testNameForTitle} 검사 결과 추이`,
-//       },
-//     },
-//     scales: {
-//       x: {
-//         title: {
-//           display: true,
-//           text: '날짜',
-//         },
-//       },
-//       y: {
-//         title: {
-//           display: true,
-//           text: '수치',
-//         },
-//         beginAtZero: false,
-//       },
-//     },
-//   });
-
-//   if (!selectedPatient) {
-//     return (
-//       <div className="lab-results-container" style={{ padding: '20px' }}>
-//         <h3>LIS 검사 결과</h3>
-//         <p>환자를 선택해야 검사 결과를 조회하고 입력할 수 있습니다.</p>
-//         <button onClick={onBackToPatientList} style={{marginTop: '20px', padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px'}}>
-//           환자 목록으로 돌아가기
-//         </button>
-//       </div>
-//     );
-//   }
-
-//   return (
-//     <div className="lab-results-container" style={{ padding: '20px', backgroundColor: '#f9f9f9', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-//       <h3>LIS 검사 결과 - {selectedPatient.display}</h3>
-//       <p><strong>UUID:</strong> {selectedPatient.uuid}</p>
-
-//       <button onClick={onBackToPatientList} style={{ marginBottom: '20px', padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}>
-//         환자 목록으로 돌아가기
-//       </button>
-
-//       {/* LIS 수치 입력 폼 */}
-//       <div style={{ border: '1px solid #ccc', padding: '20px', borderRadius: '8px', marginBottom: '30px', backgroundColor: 'white' }}>
-//         <h4>새 검사 결과 입력</h4>
-//         <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-//           <div>
-//             <label>검사 항목명:*</label>
-//             <input type="text" value={testName} onChange={(e) => setTestName(e.target.value)} required style={{ width: '90%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} />
-//           </div>
-//           <div>
-//             <label>검사 수치:*</label>
-//             <input type="number" step="0.01" value={testValue} onChange={(e) => setTestValue(e.target.value)} required style={{ width: '90%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} />
-//           </div>
-//           <div>
-//             <label>단위:</label>
-//             <input type="text" value={unit} onChange={(e) => setUnit(e.target.value)} style={{ width: '90%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} />
-//           </div>
-//           <div style={{ gridColumn: 'span 2' }}>
-//             <label>비고:</label>
-//             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows="3" style={{ width: '95%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}></textarea>
-//           </div>
-//           <button type="submit" disabled={loading} style={{ gridColumn: 'span 2', padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-//             {loading ? '등록 중...' : '검사 결과 등록'}
-//           </button>
-//         </form>
-//         {error && <p style={{ color: 'red', marginTop: '10px' }}>{error}</p>}
-//         {successMessage && <p style={{ color: 'green', marginTop: '10px' }}>{successMessage}</p>}
-//       </div>
-
-//       {/* LIS 수치 그래프 */}
-//       <div style={{ border: '1px solid #ccc', padding: '20px', borderRadius: '8px', backgroundColor: 'white' }}>
-//         <h4>검사 결과 추이 그래프</h4>
-//         {loading && <p>그래프 데이터 로딩 중...</p>}
-//         {error && !loading && <p style={{ color: 'red' }}>{error}</p>}
-//         {!loading && Object.keys(patientLabResults).length === 0 && !error && (
-//           <p>이 환자에 대한 LIS 검사 결과가 없습니다. 위에 폼을 사용하여 첫 번째 결과를 입력하세요.</p>
-//         )}
-//         {!loading && Object.keys(patientLabResults).length > 0 && (
-//           <div>
-//             {Object.keys(patientLabResults).map(testNameKey => (
-//               <div key={testNameKey} style={{ marginBottom: '20px' }}>
-//                 <Line data={generateChartData(patientLabResults[testNameKey])} options={chartOptions(testNameKey)} />
-//               </div>
-//             ))}
-//           </div>
-//         )}
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default LabResultsView;
-
-// frontend/src/components/LabResultsView.js
-
 import React, { useState, useEffect } from 'react';
 import { registerLabResult, fetchLabResultsForPatient } from '../../services/djangoApiService';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
+
+import PacsButton from '../../pacs/PacsButton';
+import PacsModal  from '../../pacs/PacsModal';
 
 // Chart.js 모듈 등록 (한번만 하면 됨)
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
@@ -257,6 +40,11 @@ const LabResultsView = ({ selectedPatient, onBackToPatientList }) => {
     const [successMessage, setSuccessMessage] = useState('');
     const [patientLabResults, setPatientLabResults] = useState({});
 
+    const [showPacs, setShowPacs] = useState(false);
+
+    const openPacs = () => setShowPacs(true);
+    const closePacs = () => setShowPacs(false);
+
     useEffect(() => {
         if (selectedPatient && selectedPatient.uuid) {
             loadLabResults(selectedPatient.uuid);
@@ -282,7 +70,6 @@ const LabResultsView = ({ selectedPatient, onBackToPatientList }) => {
             setIsUnitDirectInput(true);
         }
     }, [testName, isTestNameDirectInput]);
-
 
     const loadLabResults = async (patientUuid) => {
         setLoading(true);
@@ -551,7 +338,18 @@ const LabResultsView = ({ selectedPatient, onBackToPatientList }) => {
                     <button type="submit" disabled={loading} style={{ gridColumn: 'span 2', padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                         {loading ? '등록 중...' : '검사 결과 등록'}
                     </button>
-                </form>
+                     {/* CT/MRI 이미지 등록 버튼 (그리드 1칸 차지) */}
+                     <div
+                         style={{
+                         gridColumn: 'span 1',
+                         display: 'flex',
+                         alignItems: 'center',
+                         justifyContent: 'flex-end'
+                     }}
+                    >
+                    <PacsButton onOpen={openPacs} />
+                </div>
+             </form>
                 {error && <p style={{ color: 'red', marginTop: '10px' }}>{error}</p>}
                 {successMessage && <p style={{ color: 'green', marginTop: '10px' }}>{successMessage}</p>}
             </div>
@@ -574,6 +372,12 @@ const LabResultsView = ({ selectedPatient, onBackToPatientList }) => {
                     </div>
                 )}
             </div>
+              {/* PACS 모달 */}
+            <PacsModal
+                show={showPacs}
+                onClose={closePacs}
+                patientUuid={selectedPatient.uuid}  // LabResultsView.js 내부의 patient prop 사용
+            />
         </div>
     );
 };

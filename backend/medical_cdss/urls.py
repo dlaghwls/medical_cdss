@@ -10,5 +10,6 @@ urlpatterns = [
     path('api/chat/', include('chat.urls')), 
     path('api/auth/login/', obtain_auth_token, name='api_token_auth'),
     path('api/vitals/', include('vitals.urls')),
+    path('', include('pacs.urls')),
 ]
 

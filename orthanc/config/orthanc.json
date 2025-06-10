@@ -1,0 +1,27 @@
+{
+  "Name" : "Orthanc-PACS",
+  "StorageDirectory" : "/var/lib/orthanc/storage",
+  "IndexDirectory"  : "/var/lib/orthanc/db",
+
+  "HttpServer" : {
+    "Port" : 8042,
+    "AllowRemoteAccess" : true, 
+    "AuthenticationEnabled" : false
+  },
+
+  "RegisteredUsers" : {
+    "orthanc": "orthanc"
+  },
+
+  "DicomServer" : {
+    "Port" : 4242
+  },
+  "PluginsFolder" : "/usr/local/share/orthanc/plugins",
+
+  "DicomWeb" : {
+    "Enable" : true
+  },
+  "HttpCorsAllowOrigin" : [
+    "http://localhost:3001"
+  ]
+}
