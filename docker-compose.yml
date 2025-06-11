@@ -10,7 +10,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
+      # - ./backend:/app
       - ./frontend:/frontend
     depends_on:
       - postgres
@@ -214,28 +214,12 @@ services:
       - openmrs-backend
     networks:
       - medical-network
-  
-  orthanc:
-    image: jodogne/orthanc-plugins:latest   # 플러그인 포함된 공식 이미지
-    container_name: orthanc
-    ports:
-      - "4242:4242"   # DICOM (DIMSE) 포트
-      - "8042:8042"   # RESTful API, OHIF Viewer 용
-    volumes:
-      - ./orthanc/config:/etc/orthanc          # 사용자 설정 파일(예: orthanc.json)
-      - orthanc_db:/var/lib/orthanc/db          # DICOM DB 영속화
-      - orthanc_storage:/var/lib/orthanc/storage # DICOM 파일 스토리지
-    networks:
-      - medical-network
-    restart: unless-stopped
 
 volumes:
   postgres_data:
   redis_data:
   openmrs_db_data:
   openmrs_app_data:
-  orthanc_db:        
-  orthanc_storage: 
 
 networks:
   medical-network:

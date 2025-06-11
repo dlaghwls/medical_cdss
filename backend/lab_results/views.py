@@ -4,10 +4,11 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from .models import LabResult # 새로 정의한 LabResult 모델
-from .serializers import LabResultSerializer # 새로 정의한 LabResultSerializer
+from .models import LabResult, StrokeInfo, Complications # 새로 정의한 LabResult 모델
+from .serializers import LabResultSerializer,StrokeInfoSerializer, ComplicationsSerializer # 새로 정의한 LabResultSerializer
 from openmrs_integration.models import OpenMRSPatient # OpenMRSPatient 모델 임포트
 from django.utils import timezone
+from rest_framework.views import APIView
 
 class LabResultViewSet(viewsets.ModelViewSet):
     queryset = LabResult.objects.all()
@@ -72,4 +73,34 @@ class LabResultViewSet(viewsets.ModelViewSet):
         
         lab_results = LabResult.objects.filter(patient=patient).order_by('test_name', '-recorded_at')
         serializer = self.get_serializer(lab_results, many=True)
+        return Response(serializer.data)
+    
+class StrokeInfoHistoryView(APIView):
+    """
+    특정 환자의 모든 SOD2 정보 이력을 조회합니다.
+    GET /api/lab-results/stroke-info/?patient_uuid=<uuid>
+    """
+    def get(self, request):
+        patient_uuid = request.query_params.get('patient_uuid')
+        if not patient_uuid:
+            return Response({"error": "Patient UUID is required"}, status=400)
+        
+        # ★★★ 실제 데이터 조회 로직으로 수정 ★★★
+        history = StrokeInfo.objects.filter(patient__uuid=patient_uuid).order_by('-recorded_at')
+        serializer = StrokeInfoSerializer(history, many=True)
+        return Response(serializer.data)
+    
+class ComplicationsHistoryView(APIView):
+    """
+    특정 환자의 모든 합병증/투약 정보 이력을 조회합니다.
+    GET /api/lab-results/complications-medications/?patient_uuid=<uuid>
+    """
+    def get(self, request):
+        patient_uuid = request.query_params.get('patient_uuid')
+        if not patient_uuid:
+            return Response({"error": "Patient UUID is required"}, status=400)
+
+        # ★★★ 실제 데이터 조회 로직으로 수정 ★★★
+        history = Complications.objects.filter(patient__uuid=patient_uuid).order_by('-recorded_at')
+        serializer = ComplicationsSerializer(history, many=True)
         return Response(serializer.data)

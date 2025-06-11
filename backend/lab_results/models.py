@@ -2,6 +2,7 @@
 
 from django.db import models
 from openmrs_integration.models import OpenMRSPatient # OpenMRSPatient 모델 임포트
+from django.utils import timezone
 
 class LabResult(models.Model):
     """
@@ -54,3 +55,24 @@ class LabResult(models.Model):
 
     def __str__(self):
         return f"{self.patient.display_name} - {self.test_name}: {self.test_value} {self.unit or ''} ({self.recorded_at.strftime('%Y-%m-%d')})"
+    
+# ... 기존 LabResult 모델 아래에 추가 ...
+
+class StrokeInfo(models.Model):
+    patient = models.ForeignKey(OpenMRSPatient, on_delete=models.CASCADE, related_name='stroke_infos')
+    stroke_info = models.JSONField(help_text="Stroke-related information like type, NIHSS score, etc.")
+    notes = models.TextField(blank=True, null=True)
+    recorded_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"Stroke Info for {self.patient.display_name} at {self.recorded_at.strftime('%Y-%m-%d %H:%M')}"
+
+class Complications(models.Model):
+    patient = models.ForeignKey(OpenMRSPatient, on_delete=models.CASCADE, related_name='complications_history')
+    complications = models.JSONField(help_text="Complication flags")
+    medications = models.JSONField(help_text="Medication flags")
+    notes = models.TextField(blank=True, null=True)
+    recorded_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"Complications for {self.patient.display_name} at {self.recorded_at.strftime('%Y-%m-%d %H:%M')}"

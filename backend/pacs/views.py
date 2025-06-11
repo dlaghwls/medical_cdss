@@ -14,23 +14,20 @@ ORTHANC_URL = getattr(settings, 'ORTHANC_URL', 'http://orthanc:8042')
 @authentication_classes([])
 @permission_classes([AllowAny])
 def get_studies(request, patient_uuid):
-    """Orthanc에서 해당 환자(patient_uuid)의 스터디 목록 조회"""
-    qido_url = f"{ORTHANC_URL}/dicom-web/studies"
-    try:
-        resp = requests.get(
-            qido_url,
-            params={'PatientID': patient_uuid},
-            # auth=('orthanc', 'orthanc'),  # ★★★ 핵심적인 인증 코드 ★★★
-            timeout=10
-        )
-        resp.raise_for_status()
-        return JsonResponse(resp.json(), safe=False)
-    except requests.RequestException as e:
-        traceback.print_exc()
-        return JsonResponse(
-            {'error': 'Orthanc QIDO 호출 실패', 'detail': str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+    # Orthanc 접속 코드를 모두 제거하고, 무조건 성공 응답을 보내는 테스트
+    print("!!!!!!!!!! RUNNING THE 'ALWAYS SUCCESS' TEST VIEW !!!!!!!!!!")
+
+    # 실제 Orthanc 응답과 유사한 가짜 데이터를 만듭니다.
+    fake_studies_data = [
+      {
+        "ID": "fake-study-id-12345",
+        "PatientID": patient_uuid,
+        "StudyDate": "20250611",
+        "StudyDescription": "Test Study - Connection OK"
+      }
+    ]
+    
+    return JsonResponse(fake_studies_data, safe=False, status=200)
 
 @api_view(['POST'])
 @authentication_classes([])
